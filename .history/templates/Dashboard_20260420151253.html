@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CommuniSense — AI Communication Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: rgba(20, 20, 30, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-light: rgba(255, 255, 255, 0.12);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --text-muted: rgba(255, 255, 255, 0.4);
+            --bar-opacity: 0.9;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, var(--bar-opacity, 0.9));
+            border-radius: 10px;
+        }
+
+        /* Animated Background */
+        .bg-gradient {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                        #0a0a0f;
+        }
+
+        .animated-blob {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            z-index: -1;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .blob-1 {
+            background: #6366f1;
+            top: -200px;
+            right: -200px;
+            animation-delay: 0s;
+        }
+
+        .blob-2 {
+            background: #8b5cf6;
+            bottom: -200px;
+            left: -200px;
+            animation-delay: -7s;
+        }
+
+        .blob-3 {
+            background: #06b6d4;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 400px;
+            opacity: 0.15;
+            animation-delay: -14s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        /* Glass Navigation */
+        .glass-nav {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            cursor: pointer;
+        }
+
+        .nav-link:hover {
+            color: var(--text-primary);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .username {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            padding: 8px 16px;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--glass-border-light);
+            color: white;
+        }
+
+        /* Main Content */
+        .main {
+            padding-top: 100px;
+            padding-bottom: 60px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #ffffff, #a5b4fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 80px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--glass-border-light);
+            transform: translateY(-4px);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Section Header */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 32px;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 28px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--glass-border-light);
+            transform: translateY(-6px);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .feature-tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 20px;
+            color: var(--accent);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .glass-nav {
+                margin: 10px;
+                padding: 10px 16px;
+            }
+            .nav-links {
+                display: none;
+            }
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 0 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <div class="animated-blob blob-1"></div>
+    <div class="animated-blob blob-2"></div>
+    <div class="animated-blob blob-3"></div>
+
+    <!-- Glass Navigation -->
+    <nav class="glass-nav">
+        <div class="logo">
+            <div class="logo-icon">🤟</div>
+            <span>CommuniSense</span>
+        </div>
+        <div class="nav-links">
+            <a class="nav-link">Features</a>
+            <a class="nav-link">About</a>
+            <a class="nav-link">Contact</a>
+        </div>
+        <div class="user-menu">
+            <span class="username" id="username">Loading...</span>
+            <button class="logout-btn" onclick="logout()">Exit</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Hero -->
+            <div class="hero">
+                <div class="hero-badge">
+                    <span>✨</span> AI-Powered Communication
+                </div>
+                <h1>Breaking the silence<br>between worlds</h1>
+                <p>Real-time sign language translation for India's 63M+ deaf and hard-of-hearing community</p>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">16</div>
+                    <div class="stat-label">AI Features</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">98%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">&lt;300ms</div>
+                    <div class="stat-label">Latency</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">50+</div>
+                    <div class="stat-label">Languages</div>
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="section-header">
+                <h2 class="section-title">Explore Features</h2>
+                <span class="section-subtitle">16 powerful tools</span>
+            </div>
+
+            <div class="features-grid" id="featuresGrid"></div>
+        </div>
+    </main>
+
+    <script>
+        const features = [
+            { name: "Text to Speech", icon: "🔊", desc: "Convert text to natural speech output", badge: "Real-time", path: "tts" },
+            { name: "Speech to Text", icon: "🎙️", desc: "Convert speech to written text", badge: "Live", path: "stt" },
+            { name: "Word Recognition", icon: "📝", desc: "Recognize common sign language words", badge: "AI Powered", path: "word_recog" },
+            { name: "Letter Recognition", icon: "🔤", desc: "Recognize A-Z sign language letters", badge: "Real-time", path: "letter_recog" },
+            { name: "Number Recognition", icon: "🔢", desc: "Recognize 0-9 sign language numbers", badge: "High Accuracy", path: "number_recog" },
+            { name: "Learning Games", icon: "🎮", desc: "Fun games to learn sign language", badge: "Interactive", path: "games" },
+            { name: "AI Image Generator", icon: "🖼️", desc: "Generate images from text prompts", badge: "AI", path: "image_gen" },
+            { name: "Emotion Translator", icon: "😊", desc: "Detect emotion from text with emojis", badge: "New", path: "emotion_translate" },
+            { name: "Visual Alert System", icon: "🚨", desc: "Visual alerts for important sounds", badge: "Accessibility", path: "visual_alert" },
+            { name: "Sign Dictionary", icon: "📖", desc: "Searchable sign language dictionary", badge: "Reference", path: "sign_dictionary" },
+            { name: "Mood Journal", icon: "📓", desc: "Track your daily mood and feelings", badge: "Wellness", path: "mood_journal" },
+            { name: "Lip Sync Reader", icon: "👄", desc: "AI-powered lip reading assistance", badge: "Advanced", path: "lip_sync" }
+        ];
+
+        function loadFeatures() {
+            const grid = document.getElementById('featuresGrid');
+            grid.innerHTML = features.map(f => `
+                <div class="feature-card" onclick="goTo('${f.path}')">
+                    <div class="feature-icon">${f.icon}</div>
+                    <div class="feature-name">${f.name}</div>
+                    <div class="feature-desc">${f.desc}</div>
+                    <span class="feature-tag">${f.badge}</span>
+                </div>
+            `).join('');
+        }
+
+        async function getCurrentUser() {
+            try {
+                const response = await fetch('/api/current_user');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('username').textContent = data.username;
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+
+        function logout() {
+            fetch('/api/logout', { method: 'POST' }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        function goTo(path) {
+            window.location.href = `/${path}`;
+        }
+
+        getCurrentUser();
+        loadFeatures();
+    </script>
+</body>
+</html> 

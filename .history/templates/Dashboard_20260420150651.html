@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CommuniSense — Dashboard v2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #020205;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            cursor: none; /* Required for custom cursor */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background: radial-gradient(circle at center, #0a0a1a 0%, #020205 100%);
+        }
+
+        /* --- THE 3D BACKGROUND TRICK --- */
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* --- NOISE OVERLAY (Active Theory signature) --- */
+        .noise {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: url('https://grainy-gradients.vercel.app/noise.svg');
+            opacity: 0.04;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        /* --- CUSTOM CURSOR --- */
+        #cursor {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            transition: transform 0.1s ease-out;
+        }
+
+        #cursor-follower {
+            width: 40px;
+            height: 40px;
+            border: 1px solid var(--accent);
+            border-radius: 50%;
+            position: fixed;
+            z-index: 9998;
+            pointer-events: none;
+            transition: transform 0.2s ease-out, background 0.3s;
+        }
+
+        /* --- DASHBOARD UI LAYOUT --- */
+        .glass-nav {
+            position: fixed;
+            top: 0; width: 100%;
+            padding: 25px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo { 
+            font-weight: 800; 
+            letter-spacing: 4px; 
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .main-content {
+            padding: 150px 50px 50px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .hero-title {
+            font-size: clamp(3rem, 10vw, 8rem);
+            font-weight: 800;
+            line-height: 0.85;
+            letter-spacing: -4px;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+        }
+
+        /* --- THE FEATURE GRID (Interactive) --- */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 50px;
+        }
+
+        .feature-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 40px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            backdrop-filter: blur(5px);
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            background: rgba(99, 102, 241, 0.05);
+            border-color: var(--accent);
+            transform: translateY(-10px);
+        }
+
+        .feature-card::after {
+            content: "";
+            position: absolute;
+            bottom: 0; left: 0; width: 0%; height: 2px;
+            background: var(--accent);
+            transition: width 0.5s;
+        }
+
+        .feature-card:hover::after { width: 100%; }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: block;
+            color: var(--accent);
+        }
+
+        .feature-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .feature-desc {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        /* --- STATS BAR --- */
+        .stats-bar {
+            display: flex;
+            gap: 50px;
+            margin-bottom: 20px;
+            border-left: 2px solid var(--accent);
+            padding-left: 20px;
+        }
+
+        .stat-item span {
+            display: block;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+
+        /* Animation for Page Load */
+        .reveal {
+            animation: revealUp 1.2s cubic-bezier(0.19, 1, 0.22, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes revealUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="noise"></div>
+    <div id="cursor"></div>
+    <div id="cursor-follower"></div>
+
+    <div id="canvas-bg">
+        <div style="position:absolute; top:20%; right:10%; width:400px; height:400px; background:var(--accent); filter:blur(150px); opacity:0.1;"></div>
+    </div>
+
+    <nav class="glass-nav">
+        <div class="logo">COMMUNI—SENSE</div>
+        <div style="font-size: 0.7rem; letter-spacing: 2px;">SYSTEM STATUS: ONLINE</div>
+        <button onclick="location.reload()" style="background:none; border:1px solid rgba(255,255,255,0.2); color:white; padding:10px 20px; border-radius:30px; font-size:0.7rem; font-weight:800;">REBOOT</button>
+    </nav>
+
+    <main class="main-content">
+        <div class="reveal" style="animation-delay: 0.2s;">
+            <div class="stats-bar">
+                <div class="stat-item"><span>Accuracy</span><div class="stat-value">98.2%</div></div>
+                <div class="stat-item"><span>Latency</span><div class="stat-value">240ms</div></div>
+            </div>
+            <h1 class="hero-title">Beyond<br><span style="color:var(--accent)">Words.</span></h1>
+        </div>
+
+        <div class="features-grid reveal" id="featuresGrid" style="animation-delay: 0.5s;">
+            </div>
+    </main>
+
+    <script>
+        // Custom Cursor Logic
+        const cursor = document.getElementById('cursor');
+        const follower = document.getElementById('cursor-follower');
+
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+            // Delay the follower slightly for a smooth effect
+            setTimeout(() => {
+                follower.style.transform = `translate3d(${e.clientX - 16}px, ${e.clientY - 16}px, 0)`;
+            }, 50);
+        });
+
+        // Hover Effect for Follower
+        document.querySelectorAll('.feature-card, button').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                follower.style.background = 'rgba(99, 102, 241, 0.2)';
+                follower.style.transform += ' scale(1.5)';
+            });
+            el.addEventListener('mouseleave', () => {
+                follower.style.background = 'transparent';
+                follower.style.transform = follower.style.transform.replace(' scale(1.5)', '');
+            });
+        });
+
+        const features = [
+            { name: "SPEECH SYNTH", icon: "🔊", desc: "Neural text-to-speech engine with natural cadence.", path: "tts" },
+            { name: "VISION CAPTURE", icon: "📸", desc: "Real-time sign language recognition via ultra-low latency camera feed.", path: "vision" },
+            { name: "LIP READING", icon: "👄", desc: "AI-powered movement analysis for speech decoding.", path: "lips" },
+            { name: "EMOTION ENGINE", icon: "🧠", desc: "Sentiment analysis through facial micro-expressions.", path: "empathy" }
+        ];
+
+        function loadFeatures() {
+            const grid = document.getElementById('featuresGrid');
+            grid.innerHTML = features.map(f => `
+                <div class="feature-card" onclick="window.location.href='/${f.path}'">
+                    <span class="feature-icon">${f.icon}</span>
+                    <div class="feature-name">${f.name}</div>
+                    <div class="feature-desc">${f.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        loadFeatures();
+    </script>
+</body>
+</html>

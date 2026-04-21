@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Image Generator</title>
+<link rel="stylesheet" href="/static/base.css">
+</head>
+<body>
+<div class="container">
+    <h1>🎨 AI Image Generator</h1>
+    
+    <textarea id="prompt" rows="4" placeholder="Enter your prompt here..."></textarea>
+    
+    <button onclick="generateImage()" id="generateBtn">Generate Image</button>
+    
+    <div class="loading" id="loading">Generating... Please wait...</div>
+    <div class="error" id="error"></div>
+    
+    <div id="result">
+        <img id="generatedImage" style="display:none;">
+    </div>
+</div>
+
+<script>
+async function generateImage() {
+    const prompt = document.getElementById('prompt').value.trim();
+    
+    if (!prompt) {
+        alert('Please enter a prompt');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('generateBtn').disabled = true;
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('error').style.display = 'none';
+    document.getElementById('generatedImage').style.display = 'none';
+    
+    try {
+        // Call YOUR Flask backend
+        const response = await fetch('/api/image_gen', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prompt: prompt })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Display the image
+            const img = document.getElementById('generatedImage');
+            img.src = 'data:image/jpeg;base64,' + data.image;
+            img.style.display = 'block';
+        } else {
+            throw new Error(data.error || 'Generation failed');
+        }
+    } catch (error) {
+        document.getElementById('error').textContent = 'Error: ' + error.message;
+        document.getElementById('error').style.display = 'block';
+    } finally {
+        document.getElementById('generateBtn').disabled = false;
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+</script>
+</body>
+</html>

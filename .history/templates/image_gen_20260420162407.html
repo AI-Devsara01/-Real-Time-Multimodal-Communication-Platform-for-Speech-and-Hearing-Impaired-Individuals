@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Image Generator — CommBridge</title>
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+h1 {
+    font-size: 48px;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    color: #666;
+    margin-bottom: 30px;
+    font-size: 18px;
+}
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 30px;
+}
+
+.panel {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+}
+
+.panel-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+textarea {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 16px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.quick-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.prompt-tag {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.prompt-tag:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.style-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.style-btn {
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+
+.style-btn:hover {
+    border-color: #667eea;
+}
+
+.style-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.generate-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    margin-top: 20px;
+}
+
+.generate-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.generate-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.image-container {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.image-placeholder {
+    text-align: center;
+    color: #999;
+}
+
+.image-placeholder .icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+}
+
+#resultImage {
+    max-width: 100%;
+    max-height: 500px;
+    border-radius: 10px;
+    display: none;
+}
+
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none;
+}
+
+.loading.active {
+    display: block;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.status {
+    margin-top: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #666;
+}
+
+.error {
+    color: #e74c3c;
+    padding: 15px;
+    background: #fee;
+    border-radius: 8px;
+    margin-top: 15px;
+    display: none;
+}
+
+.error.show {
+    display: block;
+}
+
+.gallery {
+    margin-top: 20px;
+}
+
+.gallery-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.gallery-item {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s;
+}
+
+.gallery-item:hover {
+    transform: scale(1.05);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.download-btn {
+    padding: 10px 20px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.download-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.info-note {
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 5px;
+}
+
+code {
+    background: #f4f4f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>🎨 AI Image Generator</h1>
+    <p class="subtitle">Generate beautiful images from text descriptions</p>
+    
+    <div class="info-note">
+        <strong>💡 How to use:</strong> Run your Python script first, then open this HTML file. 
+        The Python script creates a local server that handles the API calls. 
+        <br>Command: <code>streamlit run your_script.py</code> or use the Python code directly.
+    </div>
+    
+    <div class="main-grid">
+        <div>
+            <div class="panel">
+                <div class="panel-title">📝 Describe your image</div>
+                <textarea id="promptInput" rows="4" placeholder="A beautiful sunset over mountains with golden light..."></textarea>
+                
+                <div class="quick-prompts" id="quickPrompts"></div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">🎭 Choose Style</div>
+                <div class="style-grid" id="styleGrid"></div>
+            </div>
+            
+            <button class="generate-btn" id="generateBtn" onclick="generateImage()">
+                ✨ Generate Image
+            </button>
+            
+            <div class="status" id="status">
+                Ready to generate
+            </div>
+            
+            <div class="error" id="errorMsg"></div>
+        </div>
+        
+        <div>
+            <div class="image-container">
+                <div class="image-placeholder" id="placeholder">
+                    <div class="icon">🖼️</div>
+                    <p>Your generated image will appear here</p>
+                </div>
+                <img id="resultImage" alt="Generated Image">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Generating your image...</p>
+                </div>
+            </div>
+            
+            <button class="download-btn" id="downloadBtn" onclick="downloadImage()" disabled>
+                ⬇️ Download Image
+            </button>
+            
+            <div class="gallery">
+                <div class="gallery-title">📚 Recent Generations</div>
+                <div class="gallery-grid" id="gallery"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Configuration - UPDATE THIS WITH YOUR ACTUAL WORKER URL
+const API_URL = 'https://image.sarafathima3700.workers.dev';
+const API_KEY = '12345678';
+
+// Available styles and prompts
+const STYLES = [
+    'Photorealistic', 'Digital Art', 'Oil Painting', 
+    'Watercolor', 'Anime', 'Sketch', '3D Render'
+];
+
+const QUICK_PROMPTS = [
+    'A beautiful sunset over mountains',
+    'Futuristic city with flying cars',
+    'Peaceful forest with sunlight',
+    'Cute cat wearing a hat',
+    'Abstract colorful waves'
+];
+
+let selectedStyle = 'Photorealistic';
+let currentImageBlob = null;
+let galleryImages = [];
+
+// Initialize UI
+function initUI() {
+    // Populate styles
+    const styleGrid = document.getElementById('styleGrid');
+    styleGrid.innerHTML = STYLES.map(style => 
+        `<button class="style-btn ${style === selectedStyle ? 'active' : ''}" 
+                 onclick="selectStyle('${style}')">${style}</button>`
+    ).join('');
+    
+    // Populate quick prompts
+    const quickPrompts = document.getElementById('quickPrompts');
+    quickPrompts.innerHTML = QUICK_PROMPTS.map(prompt =>
+        `<span class="prompt-tag" onclick="usePrompt('${prompt}')">${prompt}</span>`
+    ).join('');
+}
+
+function selectStyle(style) {
+    selectedStyle = style;
+    document.querySelectorAll('.style-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === style);
+    });
+}
+
+function usePrompt(prompt) {
+    document.getElementById('promptInput').value = prompt;
+}
+
+// This function creates a proxy through a local server to avoid CORS
+// You need to run a simple Python HTTP server or use the Streamlit app
+async function generateImageViaProxy() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    
+    if (!prompt) {
+        showError('Please enter a prompt');
+        return;
+    }
+    
+    const fullPrompt = `${prompt}, ${selectedStyle} style`;
+    
+    // Show loading
+    document.getElementById('generateBtn').disabled = true;
+    document.getElementById('loading').classList.add('active');
+    document.getElementById('placeholder').style.display = 'none';
+    document.getElementById('resultImage').style.display = 'none';
+    document.getElementById('errorMsg').classList.remove('show');
+    document.getElementById('status').textContent = 'Generating image...';
+    
+    try {
+        // Try direct API call first
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prompt: fullPrompt })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        displayImage(blob, prompt);
+        document.getElementById('status').textContent = '✓ Image generated successfully!';
+        
+    } catch (error) {
+        console.error('Error:', error);
+        
+        // If direct API fails, try alternative method
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+            showError(
+                'CORS Error: Cannot connect directly to the API. ' +
+                'Please run the Python script instead or set up a local proxy server.'
+            );
+            
+            // Try using demo image as fallback
+            generateDemoImage(prompt);
+        } else {
+            showError(`Error: ${error.message}`);
+        }
+        
+        document.getElementById('status').textContent = '❌ Generation failed';
+    } finally {
+        document.getElementById('loading').classList.remove('active');
+        document.getElementById('generateBtn').disabled = false;
+    }
+}
+
+// Fallback: Generate a placeholder/demo image
+function generateDemoImage(prompt) {
+    // Create a canvas with the prompt text
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // Create gradient background
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#667eea');
+    gradient.addColorStop(1, '#764ba2');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add text
+    ctx.font = 'bold 24px Arial';
+    ctx.fillStyle = 'white';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Wrap text
+    const words = prompt.split(' ');
+    const lines = [];
+    let line = '';
+    
+    words.forEach(word => {
+        const testLine = line + word + ' ';
+        if (ctx.measureText(testLine).width > 400) {
+            lines.push(line);
+            line = word + ' ';
+        } else {
+            line = testLine;
+        }
+    });
+    lines.push(line);
+    
+    lines.forEach((line, i) => {
+        ctx.fillText(line, canvas.width/2, canvas.height/2 - 40 + i * 30);
+    });
+    
+    ctx.font = '18px Arial';
+    ctx.fillText(`Style: ${selectedStyle}`, canvas.width/2, canvas.height/2 + 50);
+    
+    canvas.toBlob(blob => {
+        displayImage(blob, prompt);
+        document.getElementById('status').textContent = '⚠️ Demo image generated (API connection failed)';
+    });
+}
+
+function displayImage(blob, prompt) {
+    const url = URL.createObjectURL(blob);
+    const img = document.getElementById('resultImage');
+    img.src = url;
+    img.style.display = 'block';
+    
+    currentImageBlob = blob;
+    document.getElementById('downloadBtn').disabled = false;
+    
+    // Add to gallery
+    addToGallery(url, prompt);
+}
+
+function addToGallery(url, prompt) {
+    galleryImages.unshift({ url, prompt });
+    if (galleryImages.length > 8) galleryImages.pop();
+    
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = galleryImages.map((img, i) => `
+        <div class="gallery-item" onclick="viewGalleryImage(${i})">
+            <img src="${img.url}" alt="Generated ${i+1}">
+        </div>
+    `).join('');
+}
+
+function viewGalleryImage(index) {
+    const img = galleryImages[index];
+    const resultImg = document.getElementById('resultImage');
+    resultImg.src = img.url;
+    resultImg.style.display = 'block';
+    document.getElementById('placeholder').style.display = 'none';
+    
+    // Convert URL back to blob for download
+    fetch(img.url).then(r => r.blob()).then(blob => {
+        currentImageBlob = blob;
+        document.getElementById('downloadBtn').disabled = false;
+    });
+}
+
+function downloadImage() {
+    if (!currentImageBlob) return;
+    
+    const url = URL.createObjectURL(currentImageBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ai-image-${Date.now()}.jpg`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorMsg');
+    errorDiv.textContent = message;
+    errorDiv.classList.add('show');
+}
+
+// Main generate function
+function generateImage() {
+    // Try different methods in order
+    generateImageViaProxy();
+}
+
+// Alternative method: Use a CORS proxy (for testing only)
+async function generateWithCorsProxy() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    const fullPrompt = `${prompt}, ${selectedStyle} style`;
+    
+    const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+    
+    try {
+        const response = await fetch(CORS_PROXY + API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ prompt: fullPrompt })
+        });
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const blob = await response.blob();
+        displayImage(blob, prompt);
+        
+    } catch (error) {
+        showError('All connection methods failed. Please use the Python script.');
+        generateDemoImage(prompt);
+    }
+}
+
+// Initialize on load
+initUI();
+
+// Add keyboard shortcut
+document.getElementById('promptInput').addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+        generateImage();
+    }
+});
+</script>
+
+<!-- Simple Python HTTP Server Alternative -->
+<div style="margin-top: 30px; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+    <h3>🚀 Alternative: Run Local Python Server</h3>
+    <p>If the direct API call doesn't work due to CORS, create this Python file and run it:</p>
+    <pre style="background: #333; color: #fff; padding: 15px; border-radius: 5px; overflow-x: auto; margin-top: 10px;">
+# save as server.py
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import requests
+import json
+
+class ProxyHandler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
+    
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        
+        # Forward to actual API
+        response = requests.post(
+            'https://image.sarafathima3700.workers.dev',
+            headers={
+                'Authorization': 'Bearer 12345678',
+                'Content-Type': 'application/json'
+            },
+            data=post_data
+        )
+        
+        self.send_response(response.status_code)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Content-Type', 'image/jpeg')
+        self.end_headers()
+        self.wfile.write(response.content)
+
+HTTPServer(('localhost', 8000), ProxyHandler).serve_forever()
+    </pre>
+    <p style="margin-top: 10px;">Run with: <code>python server.py</code> then change API_URL in the code to: <code>http://localhost:8000</code></p>
+</div>
+
+</body>
+</html>

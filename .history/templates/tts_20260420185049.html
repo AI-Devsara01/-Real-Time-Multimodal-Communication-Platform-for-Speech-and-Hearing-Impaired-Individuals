@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Text to Speech — CommuniSense | 50+ Languages</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: rgba(15, 15, 25, 0.6);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-light: rgba(255, 255, 255, 0.15);
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --text-primary: #ffffff;
+        --text-secondary: rgba(255, 255, 255, 0.7);
+        --text-muted: rgba(255, 255, 255, 0.4);
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        overflow-x: hidden;
+    }
+
+    #bg-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+    }
+
+    .glass-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 12px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: white;
+        text-decoration: none;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        background: var(--accent);
+        border-radius: 50%;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+    }
+
+    .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .nav-link:hover, .nav-link.active {
+        color: white;
+    }
+
+    .main-layout {
+        padding: 100px 40px 60px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        background: rgba(99, 102, 241, 0.1);
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 16px;
+    }
+
+    .tts-grid {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    .panel {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--glass-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+
+    .panel-body {
+        padding: 20px;
+    }
+
+    .big-textarea {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 14px;
+        padding: 20px;
+        color: white;
+        font-size: 18px;
+        line-height: 1.6;
+        outline: none;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .big-textarea:focus {
+        border-color: var(--accent);
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: white;
+    }
+
+    .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+        border-color: var(--glass-border-light);
+        color: white;
+    }
+
+    .btn-full {
+        width: 100%;
+    }
+
+    .badge {
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--accent);
+    }
+
+    .lang-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        max-height: 280px;
+        overflow-y: auto;
+    }
+
+    .lang-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+    }
+
+    .lang-card:hover {
+        border-color: var(--glass-border-light);
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .lang-card.selected {
+        border-color: var(--accent);
+        background: rgba(99, 102, 241, 0.15);
+    }
+
+    .lang-flag {
+        font-size: 20px;
+    }
+
+    .speak-btn {
+        width: 100%;
+        height: 56px;
+        font-size: 16px;
+        font-weight: 600;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        border: none;
+        border-radius: 14px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 16px;
+    }
+
+    .speak-btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .speak-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .phrase-bank {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .phrase-tag {
+        padding: 6px 14px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .phrase-tag:hover {
+        border-color: var(--accent);
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .char-count {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-align: right;
+        margin-top: 8px;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .status-active {
+        background: var(--success);
+        box-shadow: 0 0 8px var(--success);
+        animation: pulse 2s infinite;
+    }
+
+    .status-loading {
+        background: var(--warning);
+        animation: pulse 1s infinite;
+    }
+
+    .status-speaking {
+        background: var(--accent);
+        animation: pulse 0.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    input[type="range"] {
+        width: 100%;
+        height: 4px;
+        background: var(--glass-border);
+        border-radius: 2px;
+        -webkit-appearance: none;
+    }
+
+    input[type="range"]:focus {
+        outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        background: var(--accent);
+        border-radius: 50%;
+        cursor: pointer;
+    }
+
+    .translation-result {
+        margin-top: 16px;
+        padding: 16px;
+        background: rgba(99, 102, 241, 0.1);
+        border-radius: 12px;
+        border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .translation-label {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .translated-text {
+        font-size: 15px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    @media (max-width: 900px) {
+        .tts-grid {
+            grid-template-columns: 1fr;
+        }
+        .main-layout {
+            padding: 100px 20px 40px;
+        }
+        .nav-links {
+            display: none;
+        }
+    }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav class="glass-nav">
+    <a href="/dashboard" class="nav-logo">
+        <div class="dot"></div>
+        <span>CommuniSense</span>
+    </a>
+    <div class="nav-links">
+        <a href="/word_recog" class="nav-link">Words</a>
+        <a href="/letter_recog" class="nav-link">Letters</a>
+        <a href="/number_recog" class="nav-link">Numbers</a>
+        <a href="/tts" class="nav-link active">TTS</a>
+        <a href="/stt" class="nav-link">STT</a>
+        <a href="/games" class="nav-link">Games</a>
+        <a href="/dashboard" class="nav-link">Home</a>
+    </div>
+</nav>
+
+<div class="main-layout">
+    <div style="margin-bottom: 40px">
+        <span class="section-label">🔊 50+ Languages Voice Output</span>
+        <h1 style="font-size: clamp(32px, 4vw, 52px); font-weight: 800;">Text to Speech</h1>
+        <p style="color: var(--text-muted); margin-top: 8px;">Type in any language - Get full translated speech in 50+ languages including ಕನ್ನಡ, हिन्दी, தமிழ், తెలుగు, മലയാളം and more.</p>
+    </div>
+
+    <div class="tts-grid">
+        <!-- Left Column - Input -->
+        <div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">📝 Enter Your Text</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-ghost" onclick="clearText()">Clear</button>
+                        <button class="btn btn-ghost" onclick="copyText()">Copy</button>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <textarea id="ttsInput" class="big-textarea" rows="5" placeholder="Type your message here in any language...&#10;&#10;Example: Hello, how are you? / ನಮಸ್ಕಾರ, ನೀವು ಹೇಗಿದ್ದೀರಿ? / नमस्ते, आप कैसे हैं?"></textarea>
+                    <div class="char-count"><span id="charCount">0</span> characters</div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 16px;">
+                <div class="panel-header">
+                    <span class="panel-title">⚡ Quick Phrases</span>
+                </div>
+                <div class="panel-body">
+                    <div class="phrase-bank" id="phraseBank"></div>
+                </div>
+            </div>
+
+            <!-- Translation Result - Shows what will be spoken -->
+            <div class="panel" style="margin-top: 16px;">
+                <div class="panel-header">
+                    <span class="panel-title">🌍 Will be spoken as</span>
+                </div>
+                <div class="panel-body">
+                    <div class="translation-result">
+                        <div class="translation-label">📢 Translated text (will be spoken aloud)</div>
+                        <div class="translated-text" id="translatedText" style="font-size: 16px; font-weight: 500;">Waiting for translation...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Settings -->
+        <div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">🎯 Target Language (Speech Output)</span>
+                </div>
+                <div class="panel-body">
+                    <input type="text" id="outputSearch" class="search-input" placeholder="Search language...">
+                    <div class="lang-grid" id="outputLangGrid"></div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top: 16px;">
+                <div class="panel-header">
+                    <span class="panel-title">🎚️ Voice Settings</span>
+                </div>
+                <div class="panel-body">
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span>Speaking Rate</span>
+                            <span id="rateValue">1.0x</span>
+                        </div>
+                        <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1">
+                    </div>
+                </div>
+            </div>
+
+            <button class="speak-btn" id="speakBtn" onclick="speakText()">
+                🔊 Speak Now
+            </button>
+            <button class="speak-btn" style="margin-top: 12px; background: rgba(255,255,255,0.1);" onclick="stopSpeaking()">
+                ■ Stop Speaking
+            </button>
+
+            <div style="display: flex; align-items: center; gap: 8px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 12px; margin-top: 16px;">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText" style="font-size: 12px; color: var(--text-muted);">Ready</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Three.js Background -->
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('bg-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 15);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 1500;
+    const posArray = new Float32Array(particlesCount * 3);
+    
+    for (let i = 0; i < particlesCount; i++) {
+        posArray[i * 3] = (Math.random() - 0.5) * 40;
+        posArray[i * 3 + 1] = (Math.random() - 0.5) * 30;
+        posArray[i * 3 + 2] = (Math.random() - 0.5) * 30 - 15;
+    }
+    
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particlesMaterial = new THREE.PointsMaterial({ size: 0.06, color: 0x6366f1, transparent: true, opacity: 0.4 });
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+    
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+    
+    let time = 0;
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.005;
+        particlesMesh.rotation.y = time * 0.1;
+        particlesMesh.rotation.x = Math.sin(time * 0.2) * 0.1;
+        camera.position.x = Math.sin(time * 0.2) * 0.2;
+        camera.position.y = Math.cos(time * 0.15) * 0.1;
+        camera.lookAt(0, 0, -5);
+        renderer.render(scene, camera);
+    }
+    animate();
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+
+<script>
+    // 50+ Languages with gTTS support
+    const LANGUAGES = [
+        { name: "English", code: "en", flag: "🇺🇸" },
+        { name: "Kannada", code: "kn", flag: "🇮🇳" },
+        { name: "Hindi", code: "hi", flag: "🇮🇳" },
+        { name: "Tamil", code: "ta", flag: "🇮🇳" },
+        { name: "Telugu", code: "te", flag: "🇮🇳" },
+        { name: "Malayalam", code: "ml", flag: "🇮🇳" },
+        { name: "Marathi", code: "mr", flag: "🇮🇳" },
+        { name: "Gujarati", code: "gu", flag: "🇮🇳" },
+        { name: "Punjabi", code: "pa", flag: "🇮🇳" },
+        { name: "Bengali", code: "bn", flag: "🇮🇳" },
+        { name: "Urdu", code: "ur", flag: "🇵🇰" },
+        { name: "Spanish", code: "es", flag: "🇪🇸" },
+        { name: "French", code: "fr", flag: "🇫🇷" },
+        { name: "German", code: "de", flag: "🇩🇪" },
+        { name: "Italian", code: "it", flag: "🇮🇹" },
+        { name: "Portuguese", code: "pt", flag: "🇵🇹" },
+        { name: "Russian", code: "ru", flag: "🇷🇺" },
+        { name: "Japanese", code: "ja", flag: "🇯🇵" },
+        { name: "Korean", code: "ko", flag: "🇰🇷" },
+        { name: "Chinese", code: "zh", flag: "🇨🇳" },
+        { name: "Arabic", code: "ar", flag: "🇸🇦" },
+        { name: "Turkish", code: "tr", flag: "🇹🇷" },
+        { name: "Dutch", code: "nl", flag: "🇳🇱" },
+        { name: "Polish", code: "pl", flag: "🇵🇱" },
+        { name: "Swedish", code: "sv", flag: "🇸🇪" },
+        { name: "Norwegian", code: "no", flag: "🇳🇴" },
+        { name: "Danish", code: "da", flag: "🇩🇰" },
+        { name: "Finnish", code: "fi", flag: "🇫🇮" },
+        { name: "Greek", code: "el", flag: "🇬🇷" },
+        { name: "Czech", code: "cs", flag: "🇨🇿" },
+        { name: "Hungarian", code: "hu", flag: "🇭🇺" },
+        { name: "Romanian", code: "ro", flag: "🇷🇴" },
+        { name: "Ukrainian", code: "uk", flag: "🇺🇦" },
+        { name: "Hebrew", code: "he", flag: "🇮🇱" },
+        { name: "Thai", code: "th", flag: "🇹🇭" },
+        { name: "Vietnamese", code: "vi", flag: "🇻🇳" },
+        { name: "Indonesian", code: "id", flag: "🇮🇩" },
+        { name: "Malay", code: "ms", flag: "🇲🇾" },
+        { name: "Swahili", code: "sw", flag: "🇰🇪" },
+        { name: "Afrikaans", code: "af", flag: "🇿🇦" }
+    ];
+
+    let selectedOutputLang = LANGUAGES[1]; // Kannada as default
+    let currentAudio = null;
+    let currentTranslatedText = "";
+
+    // Build output language grid
+    function buildOutputGrid(langs) {
+        const container = document.getElementById('outputLangGrid');
+        container.innerHTML = langs.map(lang => `
+            <div class="lang-card ${selectedOutputLang.code === lang.code ? 'selected' : ''}" onclick="selectOutputLang('${lang.code}')">
+                <span class="lang-flag">${lang.flag}</span>
+                <span>${lang.name}</span>
+            </div>
+        `).join('');
+    }
+
+    window.selectOutputLang = function(code) {
+        selectedOutputLang = LANGUAGES.find(l => l.code === code);
+        buildOutputGrid(LANGUAGES);
+        translateText(); // Auto-translate when language changes
+    };
+
+    // Search filter
+    document.getElementById('outputSearch').addEventListener('input', (e) => {
+        const filtered = LANGUAGES.filter(l => l.name.toLowerCase().includes(e.target.value.toLowerCase()));
+        buildOutputGrid(filtered);
+    });
+
+    // Quick phrases
+    const PHRASES = [
+        "Hello, how are you?",
+        "Thank you very much",
+        "Please help me",
+        "I need a doctor",
+        "Can you speak slowly?",
+        "Nice to meet you",
+        "Goodbye, see you later",
+        "I love you",
+        "What is your name?",
+        "How much does this cost?"
+    ];
+
+    const phraseBank = document.getElementById('phraseBank');
+    PHRASES.forEach(phrase => {
+        const tag = document.createElement('span');
+        tag.className = 'phrase-tag';
+        tag.textContent = phrase;
+        tag.onclick = () => {
+            document.getElementById('ttsInput').value = phrase;
+            updateCharCount();
+            translateText();
+        };
+        phraseBank.appendChild(tag);
+    });
+
+    function updateCharCount() {
+        const text = document.getElementById('ttsInput').value;
+        document.getElementById('charCount').textContent = text.length;
+    }
+
+    function clearText() {
+        document.getElementById('ttsInput').value = '';
+        updateCharCount();
+        document.getElementById('translatedText').innerHTML = 'Waiting for translation...';
+        currentTranslatedText = "";
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+    }
+
+    function copyText() {
+        const text = document.getElementById('ttsInput').value;
+        if (text) {
+            navigator.clipboard.writeText(text);
+            showToast('📋 Copied to clipboard!');
+        }
+    }
+
+    async function translateText() {
+        const text = document.getElementById('ttsInput').value.trim();
+        if (!text) {
+            document.getElementById('translatedText').innerHTML = '✨ Enter text to see translation';
+            return;
+        }
+
+        // If target is English, no translation needed
+        if (selectedOutputLang.code === 'en') {
+            currentTranslatedText = text;
+            document.getElementById('translatedText').innerHTML = text;
+            return;
+        }
+
+        setStatus('Translating...', 'loading');
+
+        try {
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: text,
+                    src: 'auto',
+                    dest: selectedOutputLang.code
+                })
+            });
+            
+            const data = await response.json();
+            if (data.translated) {
+                currentTranslatedText = data.translated;
+                document.getElementById('translatedText').innerHTML = data.translated;
+                console.log("✅ Translation complete:", data.translated);
+            } else {
+                currentTranslatedText = text;
+                document.getElementById('translatedText').innerHTML = text;
+            }
+            setStatus('Ready', 'active');
+        } catch (err) {
+            console.error('Translation error:', err);
+            currentTranslatedText = text;
+            document.getElementById('translatedText').innerHTML = text;
+            setStatus('Ready', 'active');
+        }
+    }
+
+    async function speakText() {
+        const originalText = document.getElementById('ttsInput').value.trim();
+        if (!originalText) {
+            showToast('⚠️ Please enter some text first');
+            return;
+        }
+
+        const rate = parseFloat(document.getElementById('rateSlider').value);
+        
+        setStatus('Preparing speech...', 'loading');
+        
+        // Disable speak button while processing
+        const speakBtn = document.getElementById('speakBtn');
+        speakBtn.disabled = true;
+        speakBtn.textContent = '⏳ Processing...';
+
+        try {
+            // Get translated text if needed
+            let finalText = originalText;
+            let targetLang = selectedOutputLang.code;
+            
+            if (selectedOutputLang.code !== 'en') {
+                setStatus('Translating...', 'loading');
+                const translateResponse = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: originalText,
+                        src: 'auto',
+                        dest: selectedOutputLang.code
+                    })
+                });
+                const translateData = await translateResponse.json();
+                if (translateData.translated) {
+                    finalText = translateData.translated;
+                    currentTranslatedText = finalText;
+                    document.getElementById('translatedText').innerHTML = finalText;
+                    console.log("📝 Translated text for speech:", finalText);
+                }
+            }
+
+            setStatus('Generating speech...', 'loading');
+            
+            // Call server TTS API
+            const ttsResponse = await fetch('/api/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    text: finalText, 
+                    lang: selectedOutputLang.code 
+                })
+            });
+
+            if (!ttsResponse.ok) {
+                throw new Error('TTS API error: ' + ttsResponse.status);
+            }
+
+            const audioBlob = await ttsResponse.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            currentAudio = new Audio(audioUrl);
+            currentAudio.playbackRate = rate;
+            
+            currentAudio.onplay = () => {
+                setStatus('🔊 Speaking now...', 'speaking');
+                console.log("🔊 Speaking:", finalText);
+            };
+            
+            currentAudio.onended = () => {
+                setStatus('Ready', 'active');
+                speakBtn.disabled = false;
+                speakBtn.textContent = '🔊 Speak Now';
+                URL.revokeObjectURL(audioUrl);
+                currentAudio = null;
+            };
+            
+            currentAudio.onerror = (e) => {
+                console.error('Audio playback error:', e);
+                setStatus('Error playing audio', 'active');
+                showToast('❌ Error playing audio. Please try again.');
+                speakBtn.disabled = false;
+                speakBtn.textContent = '🔊 Speak Now';
+                URL.revokeObjectURL(audioUrl);
+                currentAudio = null;
+            };
+            
+            await currentAudio.play();
+            
+        } catch (err) {
+            console.error('Error in speak process:', err);
+            showToast('❌ Error: ' + (err.message || 'Could not generate speech'));
+            setStatus('Error', 'active');
+            speakBtn.disabled = false;
+            speakBtn.textContent = '🔊 Speak Now';
+        }
+    }
+
+    function stopSpeaking() {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        setStatus('Stopped', 'active');
+        
+        const speakBtn = document.getElementById('speakBtn');
+        speakBtn.disabled = false;
+        speakBtn.textContent = '🔊 Speak Now';
+    }
+
+    function setStatus(msg, type) {
+        document.getElementById('statusText').textContent = msg;
+        const dot = document.getElementById('statusDot');
+        dot.className = 'status-dot';
+        if (type === 'active') dot.classList.add('status-active');
+        else if (type === 'loading') dot.classList.add('status-loading');
+        else if (type === 'speaking') dot.classList.add('status-speaking');
+    }
+
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.textContent = msg;
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 20px;border-radius:10px;z-index:1000;font-size:14px;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+
+    // Slider displays
+    document.getElementById('rateSlider').addEventListener('input', (e) => {
+        document.getElementById('rateValue').textContent = e.target.value + 'x';
+    });
+
+    // Auto-translate on input with debounce
+    let debounceTimer;
+    document.getElementById('ttsInput').addEventListener('input', () => {
+        updateCharCount();
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => translateText(), 600);
+    });
+
+    // Initialize
+    function init() {
+        buildOutputGrid(LANGUAGES);
+        updateCharCount();
+        setStatus('Ready', 'active');
+        console.log("✅ TTS Page Initialized - Using server TTS for 50+ languages including Kannada");
+    }
+    
+    init();
+</script>
+</body>
+</html>

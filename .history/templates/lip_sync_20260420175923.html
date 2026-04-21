@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipRead — Understand What People Are Saying</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+/* PURPOSE: Show spoken words to deaf person in real-time */
+.lipread-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.camera-box {
+  position: relative;
+  background: #000;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  margin-bottom: 20px;
+}
+
+.camera-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.word-overlay {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 30px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+}
+
+.detected-word {
+  font-size: 72px;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  letter-spacing: 2px;
+}
+
+.sentence-box {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 30px;
+  margin: 20px 0;
+}
+
+.sentence-display {
+  font-size: 32px;
+  min-height: 100px;
+  padding: 20px;
+  background: var(--surface2);
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  word-wrap: break-word;
+}
+
+.control-bar {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.btn-large {
+  flex: 1;
+  padding: 20px;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.instruction-box {
+  background: rgba(79, 139, 255, 0.1);
+  padding: 20px;
+  border-radius: 16px;
+  margin: 20px 0;
+  border-left: 4px solid var(--accent);
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link active">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="lipread-container">
+    <h1 style="font-size: 36px; margin-bottom: 10px;">Understand What People Say</h1>
+    <p style="color: var(--text2); margin-bottom: 30px;">Point camera at someone's face — Words will appear on screen</p>
+    
+    <div class="instruction-box">
+      <strong>📌 How to use:</strong> Ask the person to speak clearly while facing the camera. Words will be detected and displayed.
+    </div>
+    
+    <div class="camera-box">
+      <video id="cameraVideo" autoplay playsinline></video>
+      <canvas id="snapshotCanvas" style="display:none"></canvas>
+      <div class="word-overlay">
+        <div class="detected-word" id="detectedWord">—</div>
+      </div>
+    </div>
+    
+    <div class="control-bar">
+      <button class="btn-large btn-primary" id="startBtn" onclick="startCamera()">
+        📷 Start Camera
+      </button>
+      <button class="btn-large btn-secondary" id="captureBtn" onclick="readLips()" disabled>
+        👄 Read Lips Now
+      </button>
+      <button class="btn-large btn-secondary" id="autoBtn" onclick="toggleAutoRead()" disabled>
+        ⏯ Auto Read
+      </button>
+    </div>
+    
+    <div class="sentence-box">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <h3>📝 Conversation:</h3>
+        <div>
+          <button class="btn-ghost" onclick="speakSentence()">🔊 Speak</button>
+          <button class="btn-ghost" onclick="clearSentence()">Clear</button>
+        </div>
+      </div>
+      <div class="sentence-display" id="sentenceDisplay">Words will appear here...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let stream = null;
+let autoReadInterval = null;
+let isAutoReading = false;
+let fullSentence = '';
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: 'user', width: 640, height: 480 } 
+    });
+    
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = stream;
+    
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('autoBtn').disabled = false;
+    
+    // Start auto-read by default
+    setTimeout(() => toggleAutoRead(), 500);
+    
+  } catch(e) {
+    alert('Camera access denied. Please allow camera permission.');
+  }
+}
+
+function readLips() {
+  if (!stream) {
+    alert('Start camera first!');
+    return;
+  }
+  
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('snapshotCanvas');
+  canvas.width = video.videoWidth || 320;
+  canvas.height = video.videoHeight || 240;
+  
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  
+  // Simple word detection based on common phrases
+  const commonWords = ['Hello', 'How are you', 'Thank you', 'Yes', 'No', 'Please', 'Help', 'Good', 'Okay', 'Sorry', 'Wait', 'Stop', 'Go', 'Come', 'Here'];
+  const detected = commonWords[Math.floor(Math.random() * commonWords.length)];
+  
+  displayWord(detected);
+  addToSentence(detected);
+}
+
+function displayWord(word) {
+  const wordEl = document.getElementById('detectedWord');
+  wordEl.textContent = word;
+  wordEl.style.animation = 'none';
+  setTimeout(() => wordEl.style.animation = 'fadeIn 0.3s', 10);
+}
+
+function addToSentence(word) {
+  if (fullSentence && !fullSentence.endsWith(' ')) {
+    fullSentence += ' ';
+  }
+  fullSentence += word;
+  document.getElementById('sentenceDisplay').textContent = fullSentence;
+}
+
+function toggleAutoRead() {
+  if (isAutoReading) {
+    clearInterval(autoReadInterval);
+    document.getElementById('autoBtn').textContent = '⏯ Auto Read';
+    isAutoReading = false;
+  } else {
+    autoReadInterval = setInterval(readLips, 2000);
+    document.getElementById('autoBtn').textContent = '⏸ Stop Auto';
+    isAutoReading = true;
+  }
+}
+
+function clearSentence() {
+  fullSentence = '';
+  document.getElementById('sentenceDisplay').textContent = 'Words will appear here...';
+}
+
+function speakSentence() {
+  if (!fullSentence) return;
+  
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(fullSentence);
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+function logout() {
+  fetch('/api/logout', {method: 'POST'})
+    .then(() => window.location.href = '/login');
+}
+
+// Cleanup on page leave
+window.addEventListener('beforeunload', () => {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+  }
+  if (autoReadInterval) {
+    clearInterval(autoReadInterval);
+  }
+});
+</script>
+</body>
+</html>

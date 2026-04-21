@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text to Speech — CommBridge</title>
+<link rel="stylesheet" href="static/style.css">
+<style>
+.main-layout { padding: 100px 40px 60px; max-width: 1100px; margin: 0 auto; }
+.tts-grid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+.big-textarea {
+  width: 100%; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; color: var(--text);
+  font-family: var(--font-body); font-size: 20px; line-height: 1.7;
+  outline: none; resize: vertical; min-height: 220px;
+  transition: border-color 0.2s;
+}
+.big-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.big-textarea::placeholder { color: var(--text-dim); }
+.lang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lang-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 13px;
+}
+.lang-card:hover { border-color: var(--border-glow); background: rgba(99,102,241,0.05); }
+.lang-card.selected { border-color: var(--accent); background: rgba(99,102,241,0.1); }
+.lang-flag { font-size: 20px; }
+.rate-control { display: flex; align-items: center; gap: 12px; }
+.rate-val { font-family: var(--font-mono); font-size: 13px; color: var(--accent); min-width: 36px; }
+.speak-btn {
+  width: 100%; height: 64px; font-size: 18px; font-weight: 600;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; border-radius: 12px; color: #fff; cursor: pointer;
+  transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+.speak-btn:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(99,102,241,0.5); }
+.speak-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.phrase-bank { display: flex; flex-wrap: wrap; gap: 8px; }
+.phrase-tag {
+  padding: 6px 14px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; font-size: 13px; color: var(--text-muted);
+  cursor: pointer; transition: all 0.2s;
+}
+.phrase-tag:hover { color: var(--text); border-color: var(--accent); background: rgba(99,102,241,0.1); }
+.char-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); text-align: right; margin-top: 8px; }
+.history-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.history-item:last-child { border: none; }
+.history-text { flex: 1; font-size: 13px; color: var(--text-muted); }
+.history-lang { font-family: var(--font-mono); font-size: 10px; color: var(--accent); flex-shrink: 0; }
+@media(max-width:800px){.tts-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="cursor"></div><div class="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="dot"></div>CommBridge</a>
+  <div class="nav-links">
+    <a href="word_recog.html" class="nav-link">Words</a>
+    <a href="letter_recog.html" class="nav-link">Letters</a>
+    <a href="number_recog.html" class="nav-link">Numbers</a>
+    <a href="tts.html" class="nav-link active">TTS</a>
+    <a href="stt.html" class="nav-link">STT</a>
+    <a href="games.html" class="nav-link">Games</a>
+    <a href="image_gen.html" class="nav-link">AI Art</a>
+    <a href="index.html" class="nav-link">Home</a>
+  </div>
+</nav>
+
+<div class="main-layout">
+  <div style="margin-bottom:40px" class="animate-up">
+    <span class="section-label">Voice Output</span>
+    <h1 style="font-family:var(--font-display);font-size:clamp(32px,4vw,52px);font-weight:800;letter-spacing:-0.03em">Text to Speech</h1>
+    <p style="color:var(--text-muted);margin-top:8px">Type anything — hear it spoken naturally in 50+ languages. Powered by your browser + server TTS.</p>
+  </div>
+  
+  <div class="tts-grid">
+    <!-- Main input -->
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Enter text</span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-sm btn-ghost" onclick="clearText()">Clear</button>
+            <button class="btn btn-sm btn-ghost" onclick="copyText(document.getElementById('tts-input').value)">Copy</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <textarea id="tts-input" class="big-textarea" placeholder="Type your message here… or choose a phrase below." oninput="updateCount(this.value)"></textarea>
+          <div class="char-count"><span id="char-count">0</span> / 5000 characters</div>
+        </div>
+      </div>
+      
+      <!-- Phrase bank -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header"><span class="panel-title">Quick Phrases</span><span class="badge badge-accent">Tap to use</span></div>
+        <div class="panel-body">
+          <div class="phrase-bank" id="phrase-bank"></div>
+        </div>
+      </div>
+      
+      <!-- History -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header"><span class="panel-title">Recent</span><button class="btn btn-sm btn-ghost" onclick="clearHistory()">Clear</button></div>
+        <div class="panel-body" style="max-height:200px;overflow-y:auto">
+          <div id="history-list"><p style="color:var(--text-dim);font-size:13px">No history yet.</p></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Settings panel -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Language</span></div>
+        <div class="panel-body">
+          <div class="input-wrap" style="margin-bottom:16px">
+            <span class="input-icon">🔍</span>
+            <input type="text" class="form-input" id="lang-search" placeholder="Search language..." oninput="filterLangs(this.value)" style="padding-left:40px">
+          </div>
+          <div style="max-height:240px;overflow-y:auto">
+            <div class="lang-grid" id="lang-grid"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Voice Settings</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+              <label class="form-label" style="margin:0">Speaking Rate</label>
+              <span class="rate-val" id="rate-val">1.0x</span>
+            </div>
+            <input type="range" id="rate-slider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('rate-val').textContent=this.value+'x'">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+              <label class="form-label" style="margin:0">Pitch</label>
+              <span class="rate-val" id="pitch-val">1.0</span>
+            </div>
+            <input type="range" id="pitch-slider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('pitch-val').textContent=parseFloat(this.value).toFixed(1)">
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+              <label class="form-label" style="margin:0">Volume</label>
+              <span class="rate-val" id="vol-val">100%</span>
+            </div>
+            <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="document.getElementById('vol-val').textContent=Math.round(this.value*100)+'%'">
+          </div>
+        </div>
+      </div>
+      
+      <button class="speak-btn" id="speak-btn" onclick="speakText()">
+        <span>🔊</span> Speak Now
+      </button>
+      
+      <button class="btn btn-secondary btn-full" onclick="stopSpeaking()">■ Stop Speaking</button>
+      
+      <!-- Status -->
+      <div style="display:flex;align-items:center;gap:8px;padding:12px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+        <div class="status-dot status-active" id="tts-status-dot"></div>
+        <span id="tts-status" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">Ready</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="static/base.js"></script>
+<script>
+const PHRASES = [
+  'Hello, how are you?', 'Thank you very much', 'Please help me', 'I need assistance',
+  'Can you repeat that?', 'I don\'t understand', 'Where is the bathroom?', 'Call a doctor',
+  'I am deaf / hearing impaired', 'Please write it down', 'Yes, I understand', 'No, please stop',
+  'Emergency! Call police', 'What time is it?', 'How much does it cost?', 'I need water',
+  'Nice to meet you', 'Goodbye, see you later', 'I love you', 'Have a great day!'
+];
+
+const LANG_LIST = [
+  {name:'English', code:'en-US', flag:'🇺🇸'},
+  {name:'Hindi', code:'hi-IN', flag:'🇮🇳'},
+  {name:'Kannada', code:'kn-IN', flag:'🇮🇳'},
+  {name:'Tamil', code:'ta-IN', flag:'🇮🇳'},
+  {name:'Telugu', code:'te-IN', flag:'🇮🇳'},
+  {name:'Spanish', code:'es-ES', flag:'🇪🇸'},
+  {name:'French', code:'fr-FR', flag:'🇫🇷'},
+  {name:'German', code:'de-DE', flag:'🇩🇪'},
+  {name:'Japanese', code:'ja-JP', flag:'🇯🇵'},
+  {name:'Korean', code:'ko-KR', flag:'🇰🇷'},
+  {name:'Chinese', code:'zh-CN', flag:'🇨🇳'},
+  {name:'Arabic', code:'ar-SA', flag:'🇸🇦'},
+  {name:'Russian', code:'ru-RU', flag:'🇷🇺'},
+  {name:'Portuguese', code:'pt-BR', flag:'🇧🇷'},
+  {name:'Italian', code:'it-IT', flag:'🇮🇹'},
+  {name:'Dutch', code:'nl-NL', flag:'🇳🇱'},
+  {name:'Polish', code:'pl-PL', flag:'🇵🇱'},
+  {name:'Turkish', code:'tr-TR', flag:'🇹🇷'},
+  {name:'Vietnamese', code:'vi-VN', flag:'🇻🇳'},
+  {name:'Thai', code:'th-TH', flag:'🇹🇭'},
+  {name:'Bengali', code:'bn-IN', flag:'🇧🇩'},
+  {name:'Gujarati', code:'gu-IN', flag:'🇮🇳'},
+  {name:'Marathi', code:'mr-IN', flag:'🇮🇳'},
+  {name:'Malayalam', code:'ml-IN', flag:'🇮🇳'},
+  {name:'Punjabi', code:'pa-IN', flag:'🇮🇳'},
+  {name:'Urdu', code:'ur-PK', flag:'🇵🇰'},
+  {name:'Indonesian', code:'id-ID', flag:'🇮🇩'},
+  {name:'Malay', code:'ms-MY', flag:'🇲🇾'},
+  {name:'Swedish', code:'sv-SE', flag:'🇸🇪'},
+  {name:'Danish', code:'da-DK', flag:'🇩🇰'},
+  {name:'Norwegian', code:'nb-NO', flag:'🇳🇴'},
+  {name:'Finnish', code:'fi-FI', flag:'🇫🇮'},
+  {name:'Greek', code:'el-GR', flag:'🇬🇷'},
+  {name:'Romanian', code:'ro-RO', flag:'🇷🇴'},
+  {name:'Ukrainian', code:'uk-UA', flag:'🇺🇦'},
+  {name:'Czech', code:'cs-CZ', flag:'🇨🇿'},
+  {name:'Slovak', code:'sk-SK', flag:'🇸🇰'},
+  {name:'Hungarian', code:'hu-HU', flag:'🇭🇺'},
+  {name:'Hebrew', code:'he-IL', flag:'🇮🇱'},
+  {name:'Swahili', code:'sw-KE', flag:'🇰🇪'},
+  {name:'Filipino', code:'fil-PH', flag:'🇵🇭'},
+  {name:'Catalan', code:'ca-ES', flag:'🏴󠁥󠁳󠁣󠁴󠁿'},
+  {name:'Afrikaans', code:'af-ZA', flag:'🇿🇦'},
+  {name:'Icelandic', code:'is-IS', flag:'🇮🇸'},
+  {name:'Welsh', code:'cy-GB', flag:'🏴󠁧󠁢󠁷󠁬󠁳󠁿'},
+  {name:'Basque', code:'eu-ES', flag:'🏴󠁥󠁳󠁰󠁶󠁿'},
+  {name:'Galician', code:'gl-ES', flag:'🇪🇸'},
+  {name:'Serbian', code:'sr-RS', flag:'🇷🇸'},
+  {name:'Croatian', code:'hr-HR', flag:'🇭🇷'},
+  {name:'Slovenian', code:'sl-SI', flag:'🇸🇮'},
+];
+
+let selectedLang = LANG_LIST[0], history = [];
+
+function buildLangGrid(langs) {
+  const grid = document.getElementById('lang-grid');
+  grid.innerHTML = langs.map(l => `
+    <div class="lang-card ${l.code === selectedLang.code ? 'selected' : ''}" onclick="selectLang('${l.code}')">
+      <span class="lang-flag">${l.flag}</span>
+      <span>${l.name}</span>
+    </div>
+  `).join('');
+}
+
+function filterLangs(q) {
+  const filtered = q ? LANG_LIST.filter(l => l.name.toLowerCase().includes(q.toLowerCase())) : LANG_LIST;
+  buildLangGrid(filtered);
+}
+
+function selectLang(code) {
+  selectedLang = LANG_LIST.find(l => l.code === code);
+  buildLangGrid(LANG_LIST);
+}
+
+// Phrases
+const pb = document.getElementById('phrase-bank');
+PHRASES.forEach(p => {
+  pb.innerHTML += `<span class="phrase-tag" onclick="usePhrase('${p.replace(/'/g,"\\'")}')">  ${p}</span>`;
+});
+
+function usePhrase(p) {
+  document.getElementById('tts-input').value = p;
+  updateCount(p);
+}
+
+function updateCount(val) {
+  document.getElementById('char-count').textContent = val.length;
+}
+
+function clearText() {
+  document.getElementById('tts-input').value = '';
+  updateCount('');
+}
+
+async function speakText() {
+  const text = document.getElementById('tts-input').value.trim();
+  if (!text) { Toast.info('Please enter some text first'); return; }
+  
+  const rate = parseFloat(document.getElementById('rate-slider').value);
+  const pitch = parseFloat(document.getElementById('pitch-slider').value);
+  const volume = parseFloat(document.getElementById('vol-slider').value);
+  
+  setStatus('Speaking...', 'loading');
+  
+  // Try server-side first, fallback to browser
+  try {
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang: selectedLang.code.split('-')[0] })
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.playbackRate = rate;
+      audio.volume = volume;
+      audio.play();
+      audio.onended = () => { setStatus('Ready'); URL.revokeObjectURL(url); };
+    } else { throw new Error('Server TTS unavailable'); }
+  } catch {
+    // Browser fallback
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = selectedLang.code;
+    u.rate = rate;
+    u.pitch = pitch;
+    u.volume = volume;
+    u.onend = () => setStatus('Ready');
+    u.onerror = () => { setStatus('Error', 'error'); Toast.error('TTS error'); };
+    speechSynthesis.speak(u);
+  }
+  
+  addToHistory(text, selectedLang.name);
+}
+
+function stopSpeaking() {
+  speechSynthesis.cancel();
+  setStatus('Stopped');
+}
+
+function setStatus(msg, type = 'active') {
+  document.getElementById('tts-status').textContent = msg;
+  const dot = document.getElementById('tts-status-dot');
+  dot.className = `status-dot status-${type}`;
+}
+
+function addToHistory(text, lang) {
+  history.unshift({ text: text.slice(0, 60) + (text.length > 60 ? '…' : ''), lang });
+  if (history.length > 10) history.pop();
+  const list = document.getElementById('history-list');
+  list.innerHTML = history.map(h => `
+    <div class="history-item">
+      <div class="history-text">${h.text}</div>
+      <div class="history-lang">${h.lang}</div>
+    </div>
+  `).join('');
+}
+
+function clearHistory() { history = []; document.getElementById('history-list').innerHTML = '<p style="color:var(--text-dim);font-size:13px">No history yet.</p>'; }
+
+buildLangGrid(LANG_LIST);
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') speakText();
+});
+</script>
+</body>
+</html

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Sign In</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .auth-wrap {
+    position:relative; z-index:1;
+    width:100%; max-width:440px;
+    padding:1rem;
+  }
+  .auth-card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:24px;
+    padding:3rem 2.5rem;
+    box-shadow:0 40px 100px rgba(0,0,0,0.6), var(--shadow-glow);
+  }
+  .auth-logo {
+    display:flex; align-items:center; gap:.8rem;
+    margin-bottom:2.5rem;
+    font-family:var(--font-head);
+    font-size:1.4rem; font-weight:800;
+  }
+  .auth-logo .dot {
+    width:10px;height:10px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 14px var(--accent);
+    animation:pulse-dot 2s ease-in-out infinite;
+  }
+  .auth-title { font-size:1.8rem; margin-bottom:.5rem; }
+  .auth-sub   { color:var(--text2); margin-bottom:2rem; font-size:.95rem; }
+  .or-divider {
+    display:flex; align-items:center; gap:1rem;
+    margin:1.5rem 0; color:var(--text3); font-size:.8rem;
+  }
+  .or-divider::before,.or-divider::after {
+    content:''; flex:1; height:1px; background:var(--border2);
+  }
+  .auth-foot { text-align:center; margin-top:1.5rem; color:var(--text2); font-size:.875rem; }
+  .auth-foot a { color:var(--accent); text-decoration:none; font-weight:600; }
+  .error-msg {
+    background:rgba(255,56,96,.1); border:1px solid rgba(255,56,96,.3);
+    border-radius:10px; padding:.75rem 1rem;
+    color:var(--danger); font-size:.875rem; margin-bottom:1rem;
+    display:none;
+  }
+  /* 3D floating orbs */
+  .orb {
+    position:fixed; border-radius:50%; pointer-events:none; z-index:0;
+    filter:blur(60px);
+  }
+  .orb-1 { width:400px;height:400px; top:-100px; left:-100px; background:rgba(79,139,255,.08); animation:float 8s ease-in-out infinite; }
+  .orb-2 { width:300px;height:300px; bottom:-80px; right:-80px; background:rgba(0,229,255,.06); animation:float 10s ease-in-out infinite reverse; }
+  .orb-3 { width:200px;height:200px; top:40%; left:40%; background:rgba(255,79,139,.05); animation:float 12s ease-in-out infinite 2s; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="auth-wrap animate-fade-up">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="dot"></div>
+      CommuniSense
+    </div>
+
+    <h2 class="auth-title">Welcome back</h2>
+    <p class="auth-sub">Sign in to your communication hub</p>
+
+    <div class="error-msg" id="errMsg">Invalid username or password.</div>
+
+    <div class="input-group">
+      <label class="input-label">Username</label>
+      <input class="input-field" id="username" type="text" placeholder="Enter your username" autocomplete="username">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Password</label>
+      <input class="input-field" id="password" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+
+    <button class="btn btn-primary w-full btn-lg mt-2" onclick="doLogin()" id="loginBtn">
+      Sign In
+    </button>
+
+    <div class="or-divider">or</div>
+
+    <div class="auth-foot">
+      Don't have an account? <a href="/signup">Create one</a>
+    </div>
+  </div>
+</div>
+
+<script>
+async function doLogin() {
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('errMsg');
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!username || !password) {
+    err.textContent = 'Please fill in all fields.';
+    err.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Signing in…';
+  err.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    if (data.success) {
+      location.href = '/dashboard';
+    } else {
+      err.textContent = data.error || 'Login failed.';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = 'Network error. Please try again.';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Sign In';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>

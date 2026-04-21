@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emotion Express — For Non-Verbal Communication</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+/* PURPOSE: Large, visible from across the room for caregivers */
+.emotion-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.emotion-display {
+  background: var(--surface);
+  border-radius: 32px;
+  padding: 60px 40px;
+  margin: 30px 0;
+  text-align: center;
+  border: 4px solid var(--border);
+  transition: all 0.3s ease;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* LARGE - Visible from distance */
+.emotion-emoji-large {
+  font-size: 180px;
+  line-height: 1;
+  margin-bottom: 30px;
+}
+
+.emotion-word-large {
+  font-size: 64px;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.emotion-phrase-large {
+  font-size: 28px;
+  color: var(--text2);
+  margin-bottom: 30px;
+}
+
+/* Simple input for quick expression */
+.quick-input-area {
+  background: var(--surface2);
+  border-radius: 20px;
+  padding: 30px;
+}
+
+.quick-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.quick-btn {
+  padding: 20px 10px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.quick-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: scale(1.05);
+}
+
+.quick-btn-emoji {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.quick-btn-text {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.text-input-box {
+  width: 100%;
+  padding: 20px;
+  font-size: 20px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  margin: 15px 0;
+}
+
+.voice-button {
+  width: 100%;
+  padding: 20px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+/* For caregivers to see history */
+.history-strip {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+
+.history-card {
+  background: var(--surface2);
+  padding: 15px;
+  border-radius: 12px;
+  min-width: 100px;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.history-emoji {
+  font-size: 32px;
+}
+
+.history-time {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 5px;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link active">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="emotion-container">
+    <h1 style="font-size: 36px; margin-bottom: 10px;">Express How You Feel</h1>
+    <p style="color: var(--text2); margin-bottom: 30px;">Type or tap an emotion — Caregivers will see it clearly</p>
+    
+    <!-- LARGE DISPLAY FOR CAREGIVERS -->
+    <div class="emotion-display" id="emotionDisplay">
+      <div class="emotion-emoji-large" id="displayEmoji">😊</div>
+      <div class="emotion-word-large" id="displayWord">Ready</div>
+      <div class="emotion-phrase-large" id="displayPhrase">How are you feeling?</div>
+    </div>
+    
+    <!-- QUICK INPUT -->
+    <div class="quick-input-area">
+      <div class="quick-buttons" id="quickButtons"></div>
+      
+      <input type="text" class="text-input-box" id="textInput" placeholder="Type how you feel... (e.g., 'I am hungry')" onkeypress="if(event.key==='Enter') detectEmotion()">
+      
+      <button class="voice-button" onclick="detectEmotion()">
+        🎤 Show Emotion Card
+      </button>
+      
+      <!-- Recent emotions for caregivers -->
+      <div style="margin-top: 30px;">
+        <h3 style="margin-bottom: 15px;">📋 Recent Expressions</h3>
+        <div class="history-strip" id="historyStrip"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+// REAL emotions that non-verbal people commonly need to express
+const COMMON_EMOTIONS = [
+  {emoji: '😊', word: 'Happy', text: 'I am happy', phrase: 'Feeling good!'},
+  {emoji: '😢', word: 'Sad', text: 'I feel sad', phrase: 'Need comfort'},
+  {emoji: '😠', word: 'Angry', text: 'I am angry', phrase: 'Something is wrong'},
+  {emoji: '🤕', word: 'Pain', text: 'I am in pain', phrase: 'Need help - pain!'},
+  {emoji: '🍔', word: 'Hungry', text: 'I am hungry', phrase: 'Need food now'},
+  {emoji: '💧', word: 'Thirsty', text: 'I need water', phrase: 'Very thirsty'},
+  {emoji: '🚽', word: 'Bathroom', text: 'Need bathroom', phrase: 'Urgent need!'},
+  {emoji: '😴', word: 'Tired', text: 'I am tired', phrase: 'Want to rest'},
+  {emoji: '❄️', word: 'Cold', text: 'I feel cold', phrase: 'Need blanket'},
+  {emoji: '🔥', word: 'Hot', text: 'I feel hot', phrase: 'Too warm'},
+  {emoji: '🆘', word: 'Help', text: 'I need help!', phrase: 'Emergency - Help!'},
+  {emoji: '🙏', word: 'Thanks', text: 'Thank you', phrase: 'Grateful'}
+];
+
+let emotionHistory = [];
+
+// Build quick buttons
+const quickDiv = document.getElementById('quickButtons');
+COMMON_EMOTIONS.forEach(e => {
+  const btn = document.createElement('div');
+  btn.className = 'quick-btn';
+  btn.innerHTML = `
+    <span class="quick-btn-emoji">${e.emoji}</span>
+    <span class="quick-btn-text">${e.word}</span>
+  `;
+  btn.onclick = () => {
+    document.getElementById('textInput').value = e.text;
+    showEmotion(e);
+  };
+  quickDiv.appendChild(btn);
+});
+
+function detectEmotion() {
+  const text = document.getElementById('textInput').value.trim().toLowerCase();
+  if (!text) {
+    alert('Please type how you feel');
+    return;
+  }
+  
+  // Smart keyword detection
+  let detected = null;
+  
+  if (text.includes('pain') || text.includes('hurt') || text.includes('ache')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Pain');
+  } else if (text.includes('hungry') || text.includes('food') || text.includes('eat')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Hungry');
+  } else if (text.includes('sad') || text.includes('cry') || text.includes('upset')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Sad');
+  } else if (text.includes('angry') || text.includes('mad') || text.includes('frustrated')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Angry');
+  } else if (text.includes('happy') || text.includes('good') || text.includes('great')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Happy');
+  } else if (text.includes('tired') || text.includes('sleep') || text.includes('rest')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Tired');
+  } else if (text.includes('bathroom') || text.includes('toilet') || text.includes('pee')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Bathroom');
+  } else if (text.includes('water') || text.includes('thirsty') || text.includes('drink')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Thirsty');
+  } else if (text.includes('help') || text.includes('emergency') || text.includes('sos')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Help');
+  } else if (text.includes('thank') || text.includes('thanks')) {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Thanks');
+  } else {
+    detected = COMMON_EMOTIONS.find(e => e.word === 'Happy'); // Default
+  }
+  
+  showEmotion(detected);
+  
+  // Speak the phrase for verbal communication
+  speakText(detected.phrase);
+}
+
+function showEmotion(emotion) {
+  // Update large display
+  document.getElementById('displayEmoji').textContent = emotion.emoji;
+  document.getElementById('displayWord').textContent = emotion.word;
+  document.getElementById('displayPhrase').textContent = emotion.phrase;
+  
+  // Change background color based on emotion
+  const display = document.getElementById('emotionDisplay');
+  const colors = {
+    'Pain': '#ff4444', 'Help': '#ff0000', 'Hungry': '#ff9900',
+    'Sad': '#4488ff', 'Angry': '#ff6600', 'Happy': '#44cc44',
+    'Tired': '#9966cc', 'Cold': '#66ccff', 'Hot': '#ff6666'
+  };
+  display.style.borderColor = colors[emotion.word] || 'var(--accent)';
+  
+  // Add to history
+  addToHistory(emotion);
+  
+  // Clear input
+  document.getElementById('textInput').value = '';
+}
+
+function addToHistory(emotion) {
+  emotionHistory.unshift({
+    ...emotion,
+    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+  });
+  
+  if (emotionHistory.length > 8) emotionHistory.pop();
+  
+  const historyDiv = document.getElementById('historyStrip');
+  historyDiv.innerHTML = emotionHistory.map(h => `
+    <div class="history-card">
+      <div class="history-emoji">${h.emoji}</div>
+      <div style="font-size: 12px; font-weight: 600;">${h.word}</div>
+      <div class="history-time">${h.time}</div>
+    </div>
+  `).join('');
+}
+
+function speakText(text) {
+  // Use Web Speech API for immediate feedback
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+function logout() {
+  fetch('/api/logout', {method: 'POST'})
+    .then(() => window.location.href = '/login');
+}
+
+// Initial example
+setTimeout(() => {
+  showEmotion(COMMON_EMOTIONS[0]);
+}, 100);
+</script>
+</body>
+</html>

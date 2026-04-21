@@ -1,0 +1,48 @@
+// Your Cloudflare Worker (image.sarafathima3700.workers.dev)
+export default {
+  async fetch(request, env, ctx) {
+    // CORS headers
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+    };
+
+    // Handle OPTIONS request for CORS preflight
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        headers: corsHeaders
+      });
+    }
+
+    // Check API key
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || authHeader !== 'Bearer 12345678') {
+      return new Response('Unauthorized', { 
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    try {
+      const { prompt } = await request.json();
+      
+      // Your image generation logic here
+      // const image = await generateImage(prompt);
+      
+      // Return image with CORS headers
+      return new Response(imageData, {
+        headers: {
+          'Content-Type': 'image/jpeg',
+          ...corsHeaders
+        }
+      });
+    } catch (error) {
+      return new Response(error.message, { 
+        status: 500,
+        headers: corsHeaders
+      });
+    }
+  }
+};

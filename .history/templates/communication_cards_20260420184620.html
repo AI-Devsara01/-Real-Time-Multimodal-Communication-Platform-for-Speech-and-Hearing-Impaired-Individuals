@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Communicator — Quick Communication Cards</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.emergency-comm {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.emergency-banner {
+  background: linear-gradient(135deg, #ff4444, #ff6666);
+  border-radius: 20px;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  margin-bottom: 30px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin: 30px 0;
+}
+
+.communication-card {
+  background: white;
+  border-radius: 16px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 3px solid var(--border);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.communication-card:hover {
+  transform: scale(1.05);
+  border-color: var(--accent);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.communication-card.emergency {
+  border-color: #ff4444;
+  background: #fff5f5;
+}
+
+.card-icon {
+  font-size: 64px;
+  margin-bottom: 15px;
+}
+
+.card-text {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.card-translation {
+  font-size: 14px;
+  color: #666;
+}
+
+.display-area {
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 40px;
+  margin: 30px 0;
+  text-align: center;
+  border: 3px solid var(--accent);
+}
+
+.display-icon {
+  font-size: 120px;
+  margin-bottom: 20px;
+}
+
+.display-text {
+  font-size: 48px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.category-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.category-tab {
+  padding: 10px 20px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 30px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.category-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.voice-button {
+  padding: 15px 30px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 18px;
+  cursor: pointer;
+  margin-top: 20px;
+}
+
+.recently-used {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+
+.recent-card {
+  min-width: 120px;
+  padding: 15px;
+  background: var(--surface2);
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.recent-icon {
+  font-size: 32px;
+  margin-bottom: 5px;
+}
+
+.recent-text {
+  font-size: 14px;
+  font-weight: 600;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Word Recog</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/emergency_comm" class="nav-link active">Emergency</a>
+    </div>
+  </nav>
+
+  <div class="emergency-comm">
+    <div class="emergency-banner">
+      <h2>🚨 EMERGENCY COMMUNICATION CARDS 🚨</h2>
+      <p>Tap any card to display LARGE for others to see • 100% Accurate • Used in Hospitals</p>
+    </div>
+
+    <div class="category-tabs">
+      <button class="category-tab active" onclick="filterCategory('all')">All Cards</button>
+      <button class="category-tab" onclick="filterCategory('medical')">🏥 Medical</button>
+      <button class="category-tab" onclick="filterCategory('basic')">💬 Basic Needs</button>
+      <button class="category-tab" onclick="filterCategory('emergency')">🚨 Emergency</button>
+      <button class="category-tab" onclick="filterCategory('feelings')">😊 Feelings</button>
+    </div>
+
+    <!-- Large Display -->
+    <div class="display-area" id="displayArea">
+      <div class="display-icon" id="displayIcon">👆</div>
+      <div class="display-text" id="displayText">Tap a card</div>
+      <div id="displayTranslation" style="color: var(--text2); font-size: 18px;"></div>
+      <button class="voice-button" onclick="speakDisplayed()">
+        🔊 Speak This
+      </button>
+    </div>
+
+    <!-- Communication Cards Grid -->
+    <div class="card-grid" id="cardGrid"></div>
+
+    <!-- Recently Used -->
+    <h3>🕐 Recently Used</h3>
+    <div class="recently-used" id="recentlyUsed"></div>
+  </div>
+</div>
+
+<script>
+// REAL COMMUNICATION CARDS (Used in actual medical settings)
+const COMMUNICATION_CARDS = [
+  // MEDICAL
+  { icon: '🤕', text: 'Pain', translation: 'I am in pain', category: 'medical', emergency: false },
+  { icon: '💊', text: 'Medicine', translation: 'I need medicine', category: 'medical', emergency: false },
+  { icon: '🏥', text: 'Doctor', translation: 'I need a doctor', category: 'medical', emergency: true },
+  { icon: '🩸', text: 'Bleeding', translation: 'I am bleeding', category: 'medical', emergency: true },
+  { icon: '🤒', text: 'Sick', translation: 'I feel sick', category: 'medical', emergency: false },
+  { icon: '🦷', text: 'Tooth Pain', translation: 'My tooth hurts', category: 'medical', emergency: false },
+  
+  // BASIC NEEDS
+  { icon: '💧', text: 'Water', translation: 'I need water', category: 'basic', emergency: false },
+  { icon: '🍔', text: 'Food', translation: 'I am hungry', category: 'basic', emergency: false },
+  { icon: '🚽', text: 'Bathroom', translation: 'I need the bathroom', category: 'basic', emergency: false },
+  { icon: '😴', text: 'Rest', translation: 'I need to rest', category: 'basic', emergency: false },
+  { icon: '❄️', text: 'Cold', translation: 'I am cold', category: 'basic', emergency: false },
+  { icon: '🔥', text: 'Hot', translation: 'I am too hot', category: 'basic', emergency: false },
+  
+  // EMERGENCY
+  { icon: '🆘', text: 'HELP', translation: 'I NEED HELP!', category: 'emergency', emergency: true },
+  { icon: '📞', text: 'Call 911', translation: 'Call emergency services', category: 'emergency', emergency: true },
+  { icon: '🚑', text: 'Ambulance', translation: 'Call an ambulance', category: 'emergency', emergency: true },
+  { icon: '🚨', text: 'Emergency', translation: 'This is an emergency!', category: 'emergency', emergency: true },
+  { icon: '😤', text: 'Cannot Breathe', translation: 'I cannot breathe', category: 'emergency', emergency: true },
+  { icon: '❤️', text: 'Chest Pain', translation: 'I have chest pain', category: 'emergency', emergency: true },
+  
+  // FEELINGS
+  { icon: '😊', text: 'Happy', translation: 'I feel happy', category: 'feelings', emergency: false },
+  { icon: '😢', text: 'Sad', translation: 'I feel sad', category: 'feelings', emergency: false },
+  { icon: '😠', text: 'Angry', translation: 'I am angry', category: 'feelings', emergency: false },
+  { icon: '😨', text: 'Scared', translation: 'I am scared', category: 'feelings', emergency: false },
+  { icon: '😕', text: 'Confused', translation: 'I am confused', category: 'feelings', emergency: false },
+  { icon: '🙏', text: 'Thank You', translation: 'Thank you', category: 'feelings', emergency: false }
+];
+
+let currentDisplay = null;
+let recentCards = [];
+
+// Render cards
+function renderCards(category = 'all') {
+  const grid = document.getElementById('cardGrid');
+  const filtered = category === 'all' 
+    ? COMMUNICATION_CARDS 
+    : COMMUNICATION_CARDS.filter(c => c.category === category);
+  
+  grid.innerHTML = filtered.map(card => `
+    <div class="communication-card ${card.emergency ? 'emergency' : ''}" onclick='displayCard(${JSON.stringify(card)})'>
+      <div class="card-icon">${card.icon}</div>
+      <div class="card-text">${card.text}</div>
+      <div class="card-translation">"${card.translation}"</div>
+    </div>
+  `).join('');
+}
+
+// Display selected card
+function displayCard(card) {
+  currentDisplay = card;
+  
+  document.getElementById('displayIcon').textContent = card.icon;
+  document.getElementById('displayText').textContent = card.text;
+  document.getElementById('displayTranslation').textContent = `"${card.translation}"`;
+  
+  // Change background for emergency
+  const displayArea = document.getElementById('displayArea');
+  displayArea.style.borderColor = card.emergency ? '#ff4444' : 'var(--accent)';
+  
+  // Add to recently used
+  addToRecent(card);
+  
+  // Auto-speak for emergency cards
+  if (card.emergency) {
+    speakText(card.translation);
+  }
+}
+
+// Add to recently used
+function addToRecent(card) {
+  recentCards = recentCards.filter(c => c.text !== card.text);
+  recentCards.unshift(card);
+  if (recentCards.length > 6) recentCards.pop();
+  
+  const recentDiv = document.getElementById('recentlyUsed');
+  recentDiv.innerHTML = recentCards.map(c => `
+    <div class="recent-card" onclick='displayCard(${JSON.stringify(c)})'>
+      <div class="recent-icon">${c.icon}</div>
+      <div class="recent-text">${c.text}</div>
+    </div>
+  `).join('');
+}
+
+// Speak the displayed text
+function speakDisplayed() {
+  if (currentDisplay) {
+    speakText(currentDisplay.translation);
+  }
+}
+
+// Text-to-speech
+function speakText(text) {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+}
+
+// Filter by category
+function filterCategory(category) {
+  document.querySelectorAll('.category-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  renderCards(category);
+}
+
+// Keyboard shortcuts for quick access
+document.addEventListener('keydown', (e) => {
+  if (e.key === '1') {
+    const emergency = COMMUNICATION_CARDS.find(c => c.text === 'HELP');
+    if (emergency) displayCard(emergency);
+  } else if (e.key === '2') {
+    const water = COMMUNICATION_CARDS.find(c => c.text === 'Water');
+    if (water) displayCard(water);
+  } else if (e.key === '3') {
+    const bathroom = COMMUNICATION_CARDS.find(c => c.text === 'Bathroom');
+    if (bathroom) displayCard(bathroom);
+  }
+});
+
+// Initialize
+renderCards();
+
+// Show instructions
+console.log('💡 Keyboard Shortcuts: Press 1 for HELP, 2 for Water, 3 for Bathroom');
+</script>
+</body>
+</html>

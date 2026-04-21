@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Mood Journal</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  .journal-layout { display:grid; grid-template-columns:380px 1fr; gap:2rem; padding:9rem 0 5rem; align-items:start; }
+  .mood-picker { display:grid; grid-template-columns:repeat(5,1fr); gap:.6rem; margin:1rem 0; }
+  .mood-opt {
+    aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:14px; border:2px solid var(--border2); background:var(--surface2);
+    cursor:pointer; transition:all .2s; gap:.25rem;
+  }
+  .mood-opt:hover       { border-color:var(--border); transform:scale(1.05); }
+  .mood-opt.selected    { border-color:var(--accent); background:rgba(79,139,255,.12); box-shadow:0 0 20px rgba(79,139,255,.2); }
+  .mood-opt .em         { font-size:1.8rem; line-height:1; }
+  .mood-opt .lbl        { font-size:.6rem; color:var(--text2); }
+
+  .energy-track { display:flex; gap:.4rem; margin:.75rem 0; }
+  .energy-dot   { width:32px;height:32px;border-radius:8px;cursor:pointer;transition:all .2s;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--text2); }
+  .energy-dot.lit { border-color:var(--warning); background:rgba(255,183,0,.15); color:var(--warning); }
+
+  .entries-list { display:flex; flex-direction:column; gap:1rem; max-height:600px; overflow-y:auto; padding-right:.5rem; }
+  .entry-card {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:var(--radius-lg); padding:1.5rem; display:flex; gap:1.25rem;
+    align-items:flex-start; transition:all .2s;
+  }
+  .entry-card:hover { border-color:var(--border); }
+  .entry-emoji { font-size:3rem; line-height:1; flex-shrink:0; }
+  .entry-body  { flex:1; }
+  .entry-meta  { font-size:.75rem; color:var(--text3); }
+  .entry-note  { margin-top:.5rem; color:var(--text); font-size:.9rem; }
+  .del-btn { background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.1rem;transition:color .2s;padding:.25rem; }
+  .del-btn:hover { color:var(--danger); }
+
+  .energy-bar  { display:flex; gap:2px; margin-top:.5rem; }
+  .energy-pip  { height:6px; flex:1; border-radius:999px; background:var(--surface2); }
+  .energy-pip.on { background:var(--warning); }
+
+  .chart-area { background:var(--surface); border:1px solid var(--border2); border-radius:var(--radius-lg); padding:1.5rem; }
+  .mini-bars  { display:flex; gap:.5rem; align-items:flex-end; height:100px; }
+  .mini-bar   { flex:1; border-radius:6px 6px 0 0; min-width:20px; background:rgba(79,139,255,.3); transition:height .4s; }
+
+  .empty-state { text-align:center; padding:3rem; color:var(--text3); }
+  @media(max-width:900px){ .journal-layout{ grid-template-columns:1fr; padding-top:7rem; } }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a><a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a><a href="/games" class="nav-link">Games</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link active">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions"><button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button></div>
+  </nav>
+
+  <div class="container">
+    <div class="journal-layout">
+
+      <!-- ADD ENTRY -->
+      <div>
+        <div class="badge badge-accent mb-2 animate-fade-up">📔 MOOD JOURNAL</div>
+        <h2 class="animate-fade-up" data-delay="1" style="margin-bottom:.5rem">How are you today?</h2>
+        <p class="animate-fade-up" data-delay="2" style="margin-bottom:2rem;font-size:.9rem">Track your emotional wellbeing with emoji-first entries.</p>
+
+        <div class="card">
+          <label class="input-label">Select your mood</label>
+          <div class="mood-picker" id="moodPicker"></div>
+
+          <label class="input-label mt-2">Energy level (1–10)</label>
+          <div class="energy-track" id="energyTrack"></div>
+          <p style="font-size:.75rem;color:var(--text2);margin-top:.25rem">Selected: <span id="energyVal">5</span>/10</p>
+
+          <div class="input-group mt-2">
+            <label class="input-label">Note (optional)</label>
+            <textarea class="input-field" id="noteInput" placeholder="Write a few words… or just leave blank." rows="3"></textarea>
+          </div>
+
+          <button class="btn btn-primary w-full" onclick="saveEntry()">📔 Log Entry</button>
+        </div>
+
+        <!-- Today summary -->
+        <div class="card mt-3" id="todaySummary" style="display:none">
+          <h3 class="mb-2">📊 Today's Pattern</h3>
+          <div class="mini-bars" id="miniChartBars"></div>
+          <p style="font-size:.75rem;color:var(--text3);margin-top:.5rem">Last 7 entries — energy levels</p>
+        </div>
+      </div>
+
+      <!-- ENTRIES -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3>Journal Entries</h3>
+          <span id="entryCount" style="color:var(--text3);font-size:.85rem"></span>
+        </div>
+        <div class="entries-list" id="entriesList">
+          <div class="empty-state">No entries yet.<br>Add your first mood entry!</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+const MOODS = [
+  {emoji:'😊',name:'Happy',    color:'#FFD700'},
+  {emoji:'🥰',name:'Loved',    color:'#FF69B4'},
+  {emoji:'🤩',name:'Excited',  color:'#FF4500'},
+  {emoji:'😌',name:'Calm',     color:'#4169E1'},
+  {emoji:'😐',name:'Neutral',  color:'#95A5A6'},
+  {emoji:'😕',name:'Confused', color:'#FFA500'},
+  {emoji:'😢',name:'Sad',      color:'#4169E1'},
+  {emoji:'😠',name:'Angry',    color:'#FF4500'},
+  {emoji:'😴',name:'Tired',    color:'#95A5A6'},
+  {emoji:'🤕',name:'Pain',     color:'#E74C3C'},
+];
+
+let selectedMood = MOODS[4]; // default neutral
+let selectedEnergy = 5;
+
+// Mood picker
+const picker = document.getElementById('moodPicker');
+MOODS.forEach((m, i) => {
+  const d = document.createElement('div');
+  d.className = 'mood-opt' + (i === 4 ? ' selected' : '');
+  d.dataset.idx = i;
+  d.innerHTML = `<div class="em">${m.emoji}</div><div class="lbl">${m.name}</div>`;
+  d.onclick = () => {
+    document.querySelectorAll('.mood-opt').forEach(x => x.classList.remove('selected'));
+    d.classList.add('selected');
+    selectedMood = MOODS[i];
+  };
+  picker.appendChild(d);
+});
+
+// Energy track
+const et = document.getElementById('energyTrack');
+for (let i = 1; i <= 10; i++) {
+  const d = document.createElement('div');
+  d.className = 'energy-dot' + (i <= 5 ? ' lit' : '');
+  d.textContent = i;
+  d.onclick = () => {
+    selectedEnergy = i;
+    document.querySelectorAll('.energy-dot').forEach((x,j) => x.classList.toggle('lit', j < i));
+    document.getElementById('energyVal').textContent = i;
+  };
+  et.appendChild(d);
+}
+
+async function saveEntry() {
+  const note = document.getElementById('noteInput').value.trim();
+  try {
+    const data = await apiFetch('/api/mood_journal', {
+      method:'POST',
+      body: JSON.stringify({mood:selectedMood.name, emoji:selectedMood.emoji, note, energy:selectedEnergy})
+    });
+    showToast('Mood logged! 📔', 'success');
+    document.getElementById('noteInput').value = '';
+    loadEntries();
+  } catch(e) {}
+}
+
+async function loadEntries() {
+  try {
+    const data = await apiFetch('/api/mood_journal', {method:'GET'});
+    renderEntries(data.entries);
+  } catch(e) {}
+}
+
+function renderEntries(entries) {
+  document.getElementById('entryCount').textContent = `${entries.length} entries`;
+  const list = document.getElementById('entriesList');
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="empty-state">No entries yet.<br>Add your first mood entry!</div>';
+    document.getElementById('todaySummary').style.display = 'none';
+    return;
+  }
+  list.innerHTML = entries.map(e => `
+    <div class="entry-card" id="entry-${e.id}">
+      <div class="entry-emoji">${e.emoji}</div>
+      <div class="entry-body">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span style="font-weight:700">${e.mood}</span>
+          <span class="badge badge-accent">${e.energy}/10 energy</span>
+        </div>
+        <div class="entry-meta">🕐 ${e.timestamp}</div>
+        ${e.note ? `<div class="entry-note">${e.note}</div>` : ''}
+        <div class="energy-bar mt-1">
+          ${Array.from({length:10},(_,i)=>`<div class="energy-pip${i<e.energy?' on':''}"></div>`).join('')}
+        </div>
+      </div>
+      <button class="del-btn" onclick="deleteEntry('${e.id}')">🗑️</button>
+    </div>
+  `).join('');
+
+  // Mini chart
+  if (entries.length > 0) {
+    document.getElementById('todaySummary').style.display = '';
+    const bars = document.getElementById('miniChartBars');
+    const recent = entries.slice(0,7).reverse();
+    bars.innerHTML = recent.map(e => {
+      const h = (e.energy / 10) * 90;
+      return `<div class="mini-bar" style="height:${h}px;background:rgba(79,139,255,.4)" title="${e.mood}: ${e.energy}/10"></div>`;
+    }).join('');
+  }
+}
+
+async function deleteEntry(id) {
+  try {
+    await apiFetch(`/api/mood_journal/${id}`, {method:'DELETE'});
+    document.getElementById(`entry-${id}`)?.remove();
+    loadEntries();
+  } catch(e) {}
+}
+
+loadEntries();
+</script>
+</body>
+</html>

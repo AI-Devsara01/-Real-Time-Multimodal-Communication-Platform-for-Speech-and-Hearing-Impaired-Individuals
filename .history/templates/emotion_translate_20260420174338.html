@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EmotionSense — AI Emotion Translator</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.emotion-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 100px 20px 60px;
+}
+
+.emotion-hero {
+  text-align: center;
+  margin-bottom: 50px;
+}
+
+.emotion-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.emotion-card {
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+  border-radius: 24px;
+  padding: 40px;
+  border: 1px solid var(--border);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.emotion-display {
+  text-align: center;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.emotion-emoji-display {
+  font-size: 120px;
+  line-height: 1;
+  animation: float 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 40px currentColor);
+}
+
+.emotion-name-display {
+  font-size: 48px;
+  font-weight: 800;
+  margin: 20px 0;
+  background: linear-gradient(135deg, var(--text), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.emotion-phrase-display {
+  font-size: 20px;
+  color: var(--text2);
+  margin-bottom: 20px;
+}
+
+.sign-language-display {
+  font-size: 48px;
+  opacity: 0.8;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.quick-emotions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 30px 0;
+}
+
+.emotion-chip {
+  padding: 15px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.emotion-chip:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+  box-shadow: 0 8px 25px rgba(79, 139, 255, 0.2);
+}
+
+.emotion-chip .chip-emoji {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.emotion-chip .chip-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input-group {
+  margin: 25px 0;
+}
+
+.emotion-input {
+  width: 100%;
+  padding: 18px;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  font-size: 16px;
+  resize: vertical;
+  min-height: 120px;
+}
+
+.detect-btn {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  border-radius: 16px;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.detect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(79, 139, 255, 0.4);
+}
+
+.history-section {
+  margin-top: 30px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: var(--surface2);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  border-left: 4px solid var(--accent);
+  animation: slideIn 0.3s ease;
+}
+
+.history-emoji {
+  font-size: 32px;
+}
+
+.history-content {
+  flex: 1;
+}
+
+.history-emotion {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.history-text {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+.history-time {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 900px) {
+  .emotion-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link active">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="emotion-container">
+    <div class="emotion-hero">
+      <span class="badge badge-cyan">🧠 AI-POWERED EMOTION INTELLIGENCE</span>
+      <h1 style="font-size: 48px; margin: 20px 0 10px;">Emotion Translator</h1>
+      <p style="color: var(--text2); font-size: 18px;">Express your feelings without words — AI detects emotions and converts them to universal visual language</p>
+    </div>
+
+    <div class="emotion-grid">
+      <div>
+        <div class="emotion-card">
+          <h3 style="margin-bottom: 20px;">📝 How are you feeling?</h3>
+          
+          <div class="quick-emotions" id="quickEmotions"></div>
+          
+          <div class="input-group">
+            <textarea class="emotion-input" id="emotionText" placeholder="Type anything... 'I'm so happy today!' or just 'hungry', 'help', 'tired'..."></textarea>
+          </div>
+          
+          <button class="detect-btn" onclick="detectEmotion()">
+            <span id="detectBtnText">🔍 Analyze Emotion</span>
+          </button>
+          
+          <div style="margin-top: 20px; padding: 15px; background: rgba(79, 139, 255, 0.1); border-radius: 12px; border-left: 4px solid var(--accent);">
+            <strong>💡 Smart Detection:</strong> Uses NLP to understand emotional context from your words
+          </div>
+        </div>
+        
+        <div class="emotion-card" style="margin-top: 20px;">
+          <h3 style="margin-bottom: 15px;">📊 Recent Emotions</h3>
+          <div class="history-section" id="historySection">
+            <div style="color: var(--text3); text-align: center; padding: 20px;">No history yet</div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="emotion-card">
+          <div class="emotion-display" id="emotionDisplay">
+            <div class="emotion-emoji-display" id="displayEmoji">😊</div>
+            <div class="emotion-name-display" id="displayName">Ready</div>
+            <div class="emotion-phrase-display" id="displayPhrase">Type something to detect emotion</div>
+            <div class="sign-language-display" id="displaySign"></div>
+          </div>
+          
+          <div id="audioSection" style="display: none; margin-top: 20px;">
+            <button class="btn btn-secondary w-full" onclick="replayAudio()">
+              🔊 Play Voice Phrase
+            </button>
+          </div>
+        </div>
+        
+        <div class="emotion-card" style="margin-top: 20px;">
+          <h3 style="margin-bottom: 15px;">🎨 Emotion Palette</h3>
+          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;" id="emotionPalette"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+const QUICK_EMOTIONS = [
+  {emoji: '😊', name: 'Happy', text: 'I am feeling happy today!'},
+  {emoji: '😢', name: 'Sad', text: 'I feel sad and lonely'},
+  {emoji: '😠', name: 'Angry', text: 'I am very angry right now'},
+  {emoji: '🤕', name: 'Pain', text: 'I am in pain, need help'},
+  {emoji: '🆘', name: 'Help', text: 'I need help immediately!'},
+  {emoji: '🍔', name: 'Hungry', text: 'I am hungry, want food'},
+  {emoji: '😴', name: 'Tired', text: 'I feel very tired'},
+  {emoji: '🙏', name: 'Thanks', text: 'Thank you so much'}
+];
+
+const PALETTE = [
+  '😊', '😢', '😠', '😨', '🤩', '😕', '😴', '🥰', '🍔', '🤕', '🆘', '✅', '❌', '🙏', '😞'
+];
+
+let lastAudio = null;
+let emotionHistory = [];
+
+// Build quick emotions
+const quickDiv = document.getElementById('quickEmotions');
+QUICK_EMOTIONS.forEach(e => {
+  const chip = document.createElement('div');
+  chip.className = 'emotion-chip';
+  chip.innerHTML = `<div class="chip-emoji">${e.emoji}</div><div class="chip-name">${e.name}</div>`;
+  chip.onclick = () => {
+    document.getElementById('emotionText').value = e.text;
+    detectEmotion();
+  };
+  quickDiv.appendChild(chip);
+});
+
+// Build palette
+const paletteDiv = document.getElementById('emotionPalette');
+PALETTE.forEach(emoji => {
+  const btn = document.createElement('button');
+  btn.style.cssText = 'font-size: 32px; padding: 10px; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.3s;';
+  btn.textContent = emoji;
+  btn.onmouseenter = () => btn.style.transform = 'scale(1.1)';
+  btn.onmouseleave = () => btn.style.transform = 'scale(1)';
+  btn.onclick = () => {
+    document.getElementById('emotionText').value = `I feel ${getEmotionName(emoji)}`;
+    detectEmotion();
+  };
+  paletteDiv.appendChild(btn);
+});
+
+function getEmotionName(emoji) {
+  const map = {'😊':'happy','😢':'sad','😠':'angry','😨':'scared','🤩':'excited','😕':'confused','😴':'tired','🥰':'loved','🍔':'hungry','🤕':'pain','🆘':'help','✅':'yes','❌':'no','🙏':'thanks','😞':'sorry'};
+  return map[emoji] || 'neutral';
+}
+
+async function detectEmotion() {
+  const text = document.getElementById('emotionText').value.trim();
+  if (!text) {
+    showToast('Please enter some text!', 'error');
+    return;
+  }
+  
+  const btn = document.getElementById('detectBtnText');
+  btn.textContent = '🔄 Analyzing...';
+  
+  try {
+    const data = await apiFetch('/api/emotion_translate', {
+      method: 'POST',
+      body: JSON.stringify({text})
+    });
+    
+    updateDisplay(data);
+    addToHistory(data, text);
+    
+    if (data.audio) {
+      lastAudio = data.audio;
+      document.getElementById('audioSection').style.display = 'block';
+      playAudio(data.audio);
+    }
+    
+    showToast(`Detected: ${data.emotion}`, 'success');
+  } catch(e) {
+    showToast('Detection failed', 'error');
+  } finally {
+    btn.textContent = '🔍 Analyze Emotion';
+  }
+}
+
+function updateDisplay(data) {
+  const display = document.getElementById('emotionDisplay');
+  display.style.background = `radial-gradient(circle at 50% 50%, ${getEmotionColor(data.emotion)}20 0%, transparent 70%)`;
+  
+  document.getElementById('displayEmoji').textContent = data.emoji;
+  document.getElementById('displayEmoji').style.color = getEmotionColor(data.emotion);
+  document.getElementById('displayName').textContent = data.emotion.toUpperCase();
+  document.getElementById('displayPhrase').textContent = data.phrase;
+  document.getElementById('displaySign').textContent = data.sign;
+}
+
+function getEmotionColor(emotion) {
+  const colors = {
+    happy: '#FFD700', sad: '#4169E1', angry: '#FF4500', scared: '#9B59B6',
+    excited: '#FF69B4', confused: '#FFA500', tired: '#95A5A6', loved: '#FF1493',
+    hungry: '#E67E22', pain: '#E74C3C', help: '#FF0000', yes: '#2ECC71',
+    no: '#E74C3C', thanks: '#27AE60', sorry: '#7F8C8D'
+  };
+  return colors[emotion] || '#667eea';
+}
+
+function addToHistory(data, text) {
+  emotionHistory.unshift({
+    ...data,
+    text: text.substring(0, 50),
+    time: new Date().toLocaleTimeString()
+  });
+  
+  if (emotionHistory.length > 10) emotionHistory.pop();
+  
+  const historyDiv = document.getElementById('historySection');
+  historyDiv.innerHTML = emotionHistory.map(h => `
+    <div class="history-item">
+      <div class="history-emoji">${h.emoji}</div>
+      <div class="history-content">
+        <div class="history-emotion">${h.emotion}</div>
+        <div class="history-text">"${h.text}${h.text.length >= 50 ? '...' : ''}"</div>
+        <div class="history-time">🕐 ${h.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function replayAudio() {
+  if (lastAudio) playAudio(lastAudio);
+}
+
+// Keyboard shortcut
+document.getElementById('emotionText').addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') detectEmotion();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ASL Number Recognition — CommuniSense</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: rgba(15, 15, 25, 0.7);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-light: rgba(255, 255, 255, 0.15);
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --accent3: #06b6d4;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --text-primary: #ffffff;
+        --text-secondary: rgba(255, 255, 255, 0.7);
+        --text-muted: rgba(255, 255, 255, 0.4);
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        overflow-x: hidden;
+    }
+
+    /* Glass Navigation */
+    .glass-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 12px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: white;
+        text-decoration: none;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        background: var(--accent);
+        border-radius: 50%;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+    }
+
+    .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .nav-link:hover, .nav-link.active {
+        color: white;
+    }
+
+    /* Main Layout */
+    .main-layout {
+        padding: 100px 40px 60px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        background: rgba(99, 102, 241, 0.1);
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 16px;
+    }
+
+    .detection-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 24px;
+    }
+
+    /* Camera Box */
+    .cam-box {
+        background: #000;
+        border-radius: 24px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        position: relative;
+        border: 1px solid var(--glass-border);
+    }
+
+    #video-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scaleX(-1);
+    }
+
+    /* Number Display */
+    .num-display {
+        font-size: 120px;
+        font-weight: 800;
+        text-align: center;
+        background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Numpad */
+    .numpad {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+    }
+
+    .num-btn {
+        aspect-ratio: 1;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .num-btn:hover {
+        transform: scale(1.05);
+        border-color: var(--glass-border-light);
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .num-btn.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        animation: pop 0.3s ease;
+    }
+
+    @keyframes pop {
+        0% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    .num-big {
+        font-size: 28px;
+        font-weight: 800;
+    }
+
+    .num-sign {
+        font-size: 24px;
+    }
+
+    .num-hint {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+        border-color: var(--glass-border-light);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success);
+        color: white;
+    }
+
+    /* Panels */
+    .panel {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--glass-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+
+    .panel-body {
+        padding: 20px;
+    }
+
+    .badge {
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--accent);
+    }
+
+    /* Confidence Bar */
+    .conf-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 16px;
+    }
+
+    .conf-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-radius: 3px;
+        transition: width 0.3s;
+    }
+
+    /* Sequence Display */
+    .sequence-display {
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-height: 70px;
+    }
+
+    .digit-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        font-size: 32px;
+        font-weight: 800;
+        transition: all 0.2s;
+    }
+
+    /* ASL Guide */
+    .asl-num-guide {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+    }
+
+    .guide-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        transition: 0.2s;
+    }
+
+    .guide-item:hover {
+        border-color: var(--glass-border-light);
+        transform: translateY(-2px);
+    }
+
+    .guide-emoji {
+        font-size: 28px;
+        display: block;
+    }
+
+    .guide-label {
+        font-size: 20px;
+        font-weight: 800;
+        margin-top: 6px;
+        color: var(--accent);
+    }
+
+    .guide-hint {
+        font-size: 9px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+
+    /* Status */
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        transition: all 0.3s;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 14px;
+        text-align: center;
+    }
+
+    .finger-status {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .finger-chip {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+    }
+
+    .finger-chip.extended {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: var(--success);
+        color: var(--success);
+    }
+
+    .finger-chip.retracted {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: var(--danger);
+        color: var(--danger);
+    }
+
+    @media (max-width: 968px) {
+        .detection-layout { grid-template-columns: 1fr; }
+        .main-layout { padding: 100px 20px 40px; }
+        .nav-links { display: none; }
+        .num-display { font-size: 80px; }
+    }
+</style>
+</head>
+<body>
+
+<!-- Glass Navigation -->
+<nav class="glass-nav">
+    <a href="/dashboard" class="nav-logo">
+        <div class="dot"></div>
+        <span>CommuniSense</span>
+    </a>
+    <div class="nav-links">
+        <a href="/word_recog" class="nav-link">Words</a>
+        <a href="/letter_recog" class="nav-link">Letters</a>
+        <a href="/number_recog" class="nav-link active">Numbers</a>
+        <a href="/tts" class="nav-link">TTS</a>
+        <a href="/stt" class="nav-link">STT</a>
+        <a href="/games" class="nav-link">Games</a>
+        <a href="/dashboard" class="nav-link">Home</a>
+    </div>
+</nav>
+
+<div class="main-layout">
+    <div style="margin-bottom: 40px">
+        <span class="section-label">🤟 ASL Recognition</span>
+        <h1 style="font-size: clamp(32px, 4vw, 52px); font-weight: 800;">Number Recognition</h1>
+        <p style="color: var(--text-muted); margin-top: 8px;">Show digits 0–9 using ASL hand signs. Each number is spoken aloud automatically.</p>
+    </div>
+
+    <div class="detection-layout">
+        <!-- Left Column -->
+        <div>
+            <div class="cam-box">
+                <canvas id="video-canvas"></canvas>
+                <div id="no-cam" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,10,15,0.95); gap: 16px; z-index: 10;">
+                    <div style="font-size: 48px;">📷</div>
+                    <p style="color: var(--text-muted);">Camera not started</p>
+                    <button class="btn btn-primary" onclick="startCamera()">Enable Camera</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Start</button>
+                <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" disabled>■ Stop</button>
+                <button class="btn btn-ghost" onclick="deleteDigit()">⌫ Delete</button>
+                <button class="btn btn-ghost" onclick="clearSequence()">Clear</button>
+                <button class="btn btn-success" onclick="speakSequence()">🔊 Speak</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+                <div class="status-dot" id="statusDot" style="background: var(--text-muted);"></div>
+                <span id="statusText" style="font-size: 12px; color: var(--text-muted);">Camera offline</span>
+                <span style="flex:1"></span>
+                <span style="font-size: 11px; color: var(--accent);">🔊 Voice ready</span>
+            </div>
+
+            <!-- Finger Status -->
+            <div class="finger-status" id="fingerStatus">
+                <span class="finger-chip">Thumb: —</span>
+                <span class="finger-chip">Index: —</span>
+                <span class="finger-chip">Middle: —</span>
+                <span class="finger-chip">Ring: —</span>
+                <span class="finger-chip">Pinky: —</span>
+            </div>
+
+            <!-- Manual Numpad -->
+            <div class="panel" style="margin-top: 20px;">
+                <div class="panel-header"><span class="panel-title">Manual Input</span></div>
+                <div class="panel-body">
+                    <div class="numpad" id="numpad"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Detected Digit</span>
+                    <span class="badge" id="confBadge">0%</span>
+                </div>
+                <div class="panel-body" style="text-align: center;">
+                    <div class="num-display" id="detectedDigit">—</div>
+                    <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">Number Sequence</span></div>
+                <div class="panel-body">
+                    <div class="sequence-display" id="sequenceDisplay"></div>
+                    <div style="margin-top: 12px; color: var(--text-muted); font-size: 13px;" id="wordDisplay"></div>
+                </div>
+            </div>
+
+            <!-- ASL Guide -->
+            <div class="panel">
+                <div class="panel-header"><span class="panel-title">ASL Number Signs</span></div>
+                <div class="panel-body">
+                    <div class="asl-num-guide" id="aslGuide"></div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                <div class="card"><div style="font-size: 24px; font-weight: 800; color: var(--accent);" id="totalDetections">0</div><div style="font-size: 9px; color: var(--text-muted);">Detected</div></div>
+                <div class="card"><div style="font-size: 24px; font-weight: 800; color: var(--success);">97%</div><div style="font-size: 9px; color: var(--text-muted);">Accuracy</div></div>
+                <div class="card"><div style="font-size: 24px; font-weight: 800; color: var(--accent2);" id="seqLength">0</div><div style="font-size: 9px; color: var(--text-muted);">Digits</div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MediaPipe Library -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+    // ============================================
+    // ASL DIGITS DATA (0-9)
+    // ============================================
+    const SIGNS = [
+        { n: '0', e: '✊', h: 'FIST - All fingers closed' },
+        { n: '1', e: '☝️', h: 'INDEX - Only index up' },
+        { n: '2', e: '✌️', h: 'PEACE - Index+Middle up' },
+        { n: '3', e: '🤟', h: 'THREE - Index+Middle+Ring' },
+        { n: '4', e: '🖖', h: 'FOUR - Four fingers up' },
+        { n: '5', e: '🖐️', h: 'OPEN - All fingers spread' },
+        { n: '6', e: '🤙', h: 'PHONE - Thumb+Pinky out' },
+        { n: '7', e: '👌', h: 'PINCH - Thumb+Index+Middle' },
+        { n: '8', e: '👉', h: 'L-SHAPE - Thumb+Index L' },
+        { n: '9', e: '☝️', h: 'HOOK - Curled index' }
+    ];
+
+    // Build UI components
+    function buildUI() {
+        const numpad = document.getElementById('numpad');
+        const guide = document.getElementById('aslGuide');
+        
+        SIGNS.forEach(s => {
+            numpad.innerHTML += `<div class="num-btn" onclick="addDigit('${s.n}')">
+                <span class="num-sign">${s.e}</span>
+                <span class="num-big">${s.n}</span>
+                <span class="num-hint">${s.h.split(' - ')[0]}</span>
+            </div>`;
+            
+            guide.innerHTML += `<div class="guide-item">
+                <span class="guide-emoji">${s.e}</span>
+                <span class="guide-label">${s.n}</span>
+                <div class="guide-hint">${s.h}</div>
+            </div>`;
+        });
+    }
+    
+    buildUI();
+
+    // ============================================
+    // RECOGNITION LOGIC (from num.py)
+    // ============================================
+    
+    let sequence = '';
+    let totalDetections = 0;
+    let lastDigit = null;
+    let lastTime = 0;
+    let camera = null;
+    let hands = null;
+    
+    const fingerNames = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+    const displayNames = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky'];
+    
+    function updateFingerStatus(extended) {
+        for (let i = 0; i < fingerNames.length; i++) {
+            const chip = document.querySelector(`.finger-chip:nth-child(${i+1})`);
+            if (chip) {
+                const isExt = extended[fingerNames[i]];
+                chip.textContent = `${displayNames[i]}: ${isExt ? '▲' : '▼'}`;
+                chip.classList.remove('extended', 'retracted');
+                chip.classList.add(isExt ? 'extended' : 'retracted');
+            }
+        }
+    }
+    
+    // Recognize digit based on finger states (matching num.py exactly)
+    function recognizeDigit(extended) {
+        const extendedFingers = fingerNames.filter(f => f !== 'thumb' && extended[f] === true);
+        const extendedCount = extendedFingers.length;
+        const thumbExtended = extended.thumb === true;
+        
+        // DIGIT 0 - FIST
+        if (extendedCount === 0 && !thumbExtended) return { digit: 0, confidence: 0.97 };
+        // DIGIT 1 - Only index
+        if (extendedCount === 1 && extended.index === true) return { digit: 1, confidence: 0.97 };
+        // DIGIT 2 - Index + Middle
+        if (extendedCount === 2 && extended.index && extended.middle) return { digit: 2, confidence: 0.96 };
+        // DIGIT 3 - Index + Middle + Ring
+        if (extendedCount === 3 && extended.index && extended.middle && extended.ring) return { digit: 3, confidence: 0.96 };
+        // DIGIT 4 - Four fingers up (thumb tucked)
+        if (extendedCount === 4 && !thumbExtended) return { digit: 4, confidence: 0.96 };
+        // DIGIT 5 - Open hand
+        if (extendedCount === 4 && thumbExtended) return { digit: 5, confidence: 0.97 };
+        // DIGIT 6 - Thumb + Pinky
+        if (thumbExtended && extended.pinky && extendedCount === 1) return { digit: 6, confidence: 0.95 };
+        // DIGIT 7 - Thumb + Index + Middle
+        if (thumbExtended && extended.index && extended.middle && extendedCount === 2) return { digit: 7, confidence: 0.95 };
+        // DIGIT 8 - Thumb + Index (L-shape)
+        if (thumbExtended && extended.index && extendedCount === 1) return { digit: 8, confidence: 0.96 };
+        // DIGIT 9 - Thumb out, fingers curled
+        if (thumbExtended && extendedCount === 0) return { digit: 9, confidence: 0.94 };
+        
+        return { digit: null, confidence: 0.60 };
+    }
+    
+    // Get extended fingers from landmarks
+    function getExtendedFingers(landmarks) {
+        const extended = { thumb: false, index: false, middle: false, ring: false, pinky: false };
+        if (!landmarks || landmarks.length < 21) return extended;
+        
+        // Thumb (x-coordinate comparison)
+        extended.thumb = landmarks[4].x < landmarks[2].x - 0.02;
+        
+        // Other fingers (y-coordinate comparison)
+        extended.index = landmarks[8].y < landmarks[6].y - 0.01 && landmarks[6].y < landmarks[5].y - 0.01;
+        extended.middle = landmarks[12].y < landmarks[10].y - 0.01 && landmarks[10].y < landmarks[9].y - 0.01;
+        extended.ring = landmarks[16].y < landmarks[14].y - 0.01 && landmarks[14].y < landmarks[13].y - 0.01;
+        extended.pinky = landmarks[20].y < landmarks[18].y - 0.01 && landmarks[18].y < landmarks[17].y - 0.01;
+        
+        return extended;
+    }
+    
+    // Draw hand on canvas
+    function drawHand(ctx, landmarks, width, height) {
+        if (!landmarks) return;
+        
+        const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+        
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        connections.forEach(conn => {
+            const p1 = landmarks[conn[0]], p2 = landmarks[conn[1]];
+            if (p1 && p2) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x * width, p1.y * height);
+                ctx.lineTo(p2.x * width, p2.y * height);
+                ctx.stroke();
+            }
+        });
+        
+        landmarks.forEach(lm => {
+            ctx.beginPath();
+            ctx.arc(lm.x * width, lm.y * height, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = '#8b5cf6';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        });
+    }
+    
+    // Process hand results
+    function onHandResults(results) {
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            const landmarks = results.multiHandLandmarks[0];
+            drawHand(ctx, landmarks, canvas.width, canvas.height);
+            
+            const extended = getExtendedFingers(landmarks);
+            updateFingerStatus(extended);
+            
+            const { digit, confidence } = recognizeDigit(extended);
+            
+            if (digit !== null && confidence > 0.70) {
+                const now = Date.now();
+                if (digit !== lastDigit && now - lastTime > 600) {
+                    addDigit(String(digit));
+                    speakDigit(String(digit));
+                    lastDigit = digit;
+                    lastTime = now;
+                    totalDetections++;
+                    document.getElementById('totalDetections').textContent = totalDetections;
+                }
+                
+                document.getElementById('detectedDigit').textContent = digit;
+                document.getElementById('confBadge').textContent = `${Math.round(confidence * 100)}%`;
+                document.getElementById('confFill').style.width = `${confidence * 100}%`;
+                
+                document.querySelectorAll('.num-btn').forEach(btn => btn.classList.remove('active'));
+                const activeBtn = document.getElementById(`nbtn-${digit}`);
+                if (activeBtn) activeBtn.classList.add('active');
+            } else {
+                document.getElementById('detectedDigit').textContent = '?';
+                document.getElementById('confBadge').textContent = 'Low';
+                document.getElementById('confFill').style.width = '20%';
+            }
+        } else {
+            document.getElementById('detectedDigit').textContent = '—';
+            document.getElementById('confBadge').textContent = '0%';
+            document.getElementById('confFill').style.width = '0%';
+            
+            for (let i = 0; i < 5; i++) {
+                const chip = document.querySelector(`.finger-chip:nth-child(${i+1})`);
+                if (chip) {
+                    chip.textContent = `${displayNames[i]}: —`;
+                    chip.classList.remove('extended', 'retracted');
+                }
+            }
+        }
+    }
+    
+    // Camera functions
+    async function startCamera() {
+        try {
+            const videoElement = document.createElement('video');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+            await videoElement.play();
+            
+            document.getElementById('no-cam').style.display = 'none';
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('statusDot').style.cssText = 'background: var(--success); animation: pulse 2s infinite';
+            document.getElementById('statusText').textContent = 'Detecting numbers...';
+            
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+            
+            hands.onResults(onHandResults);
+            
+            camera = new Camera(videoElement, {
+                onFrame: async () => { if (hands) await hands.send({ image: videoElement }); },
+                width: 640,
+                height: 480
+            });
+            
+            await camera.start();
+            
+        } catch (error) {
+            alert('Please allow camera access');
+        }
+    }
+    
+    function stopCamera() {
+        if (camera) { camera.stop(); camera = null; }
+        if (hands) { hands.close(); hands = null; }
+        
+        document.getElementById('no-cam').style.display = 'flex';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('statusText').textContent = 'Camera offline';
+        document.getElementById('statusDot').style.cssText = 'background: var(--text-muted); animation: none';
+        
+        const canvas = document.getElementById('video-canvas');
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Sequence functions
+    function addDigit(d) {
+        sequence += d;
+        updateSequenceDisplay();
+    }
+    
+    function deleteDigit() {
+        sequence = sequence.slice(0, -1);
+        updateSequenceDisplay();
+    }
+    
+    function clearSequence() {
+        sequence = '';
+        updateSequenceDisplay();
+        lastDigit = null;
+    }
+    
+    function updateSequenceDisplay() {
+        const display = document.getElementById('sequenceDisplay');
+        display.innerHTML = sequence.split('').map(c => `<span class="digit-chip">${c}</span>`).join('');
+        document.getElementById('seqLength').textContent = sequence.length;
+        
+        const num = parseFloat(sequence);
+        const wordDisplay = document.getElementById('wordDisplay');
+        if (!isNaN(num) && sequence !== '') {
+            wordDisplay.textContent = numberToWords(num);
+        } else {
+            wordDisplay.textContent = '';
+        }
+    }
+    
+    function speakDigit(d) {
+        const utterance = new SpeechSynthesisUtterance(d);
+        utterance.rate = 1.1;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    function speakSequence() {
+        if (!sequence) return;
+        const utterance = new SpeechSynthesisUtterance(sequence.split('').join(' '));
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    function numberToWords(n) {
+        const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        if (n < 20) return ones[Math.floor(n)];
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+        if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + numberToWords(n % 100) : '');
+        return String(n);
+    }
+    
+    // Add onclick handlers for numpad buttons
+    SIGNS.forEach(s => {
+        const btn = document.getElementById(`nbtn-${s.n}`);
+        if (btn) btn.onclick = () => addDigit(s.n);
+    });
+</script>
+</body>
+</html>

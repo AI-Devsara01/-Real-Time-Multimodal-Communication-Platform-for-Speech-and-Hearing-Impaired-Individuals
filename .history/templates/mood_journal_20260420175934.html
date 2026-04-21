@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mood Tracker — Track Emotional Patterns</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.mood-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.mood-grid-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 30px;
+}
+
+.mood-selector-panel {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 30px;
+  border: 2px solid var(--border);
+}
+
+.mood-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.mood-option-btn {
+  aspect-ratio: 1;
+  background: var(--surface2);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 10px;
+}
+
+.mood-option-btn.selected {
+  border-color: var(--accent);
+  background: rgba(79, 139, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.mood-option-emoji {
+  font-size: 40px;
+  margin-bottom: 5px;
+}
+
+.mood-option-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.entries-panel {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 30px;
+  border: 2px solid var(--border);
+}
+
+.entry-card {
+  background: var(--surface2);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-left: 4px solid var(--accent);
+}
+
+.entry-emoji-large {
+  font-size: 48px;
+}
+
+.entry-details {
+  flex: 1;
+}
+
+.entry-mood-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.entry-note-text {
+  color: var(--text2);
+  font-style: italic;
+  margin: 5px 0;
+}
+
+.entry-time {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.energy-indicator {
+  display: flex;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.energy-dot-small {
+  width: 20px;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.energy-dot-small.filled {
+  background: var(--accent);
+}
+
+.stats-summary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.week-view {
+  display: flex;
+  gap: 5px;
+  margin-top: 20px;
+}
+
+.day-mood {
+  flex: 1;
+  text-align: center;
+  padding: 10px 5px;
+  background: var(--surface2);
+  border-radius: 8px;
+  font-size: 24px;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link active">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="mood-container">
+    <h1 style="font-size: 36px; margin-bottom: 10px;">Mood Journal</h1>
+    <p style="color: var(--text2); margin-bottom: 30px;">Track emotional patterns — Helps caregivers understand triggers</p>
+    
+    <div class="mood-grid-layout">
+      <div>
+        <div class="mood-selector-panel">
+          <h3>How are you feeling now?</h3>
+          <div class="mood-options" id="moodOptions"></div>
+          
+          <div style="margin: 20px 0;">
+            <label>Energy Level (1-5)</label>
+            <div style="display: flex; gap: 5px; margin-top: 10px;" id="energySelector"></div>
+          </div>
+          
+          <textarea id="noteInput" placeholder="Add a note (optional)..." style="width: 100%; padding: 15px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); margin: 15px 0;" rows="2"></textarea>
+          
+          <button class="btn btn-primary w-full" onclick="saveMood()" style="padding: 15px;">
+            💾 Save This Mood
+          </button>
+        </div>
+        
+        <div class="stats-summary" style="margin-top: 20px;">
+          <h3 style="margin-bottom: 15px;">📊 This Week</h3>
+          <div class="week-view" id="weekView"></div>
+          <div style="margin-top: 20px; text-align: center;">
+            <div style="font-size: 36px; font-weight: 700;" id="avgMood">—</div>
+            <div style="font-size: 12px; opacity: 0.9;">Average Mood</div>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="entries-panel">
+          <h3 style="margin-bottom: 20px;">📔 Journal Entries</h3>
+          <div id="entriesList" style="max-height: 600px; overflow-y: auto;">
+            <div style="color: var(--text3); text-align: center; padding: 40px;">Loading entries...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MOODS = [
+  {emoji: '😊', name: 'Happy', value: 5},
+  {emoji: '😐', name: 'Neutral', value: 3},
+  {emoji: '😢', name: 'Sad', value: 1},
+  {emoji: '😠', name: 'Angry', value: 2},
+  {emoji: '😴', name: 'Tired', value: 2},
+  {emoji: '🤒', name: 'Sick', value: 1}
+];
+
+let selectedMood = MOODS[0];
+let selectedEnergy = 3;
+let entries = [];
+
+// Build mood options
+const moodDiv = document.getElementById('moodOptions');
+MOODS.forEach((mood, i) => {
+  const btn = document.createElement('div');
+  btn.className = 'mood-option-btn' + (i === 0 ? ' selected' : '');
+  btn.innerHTML = `
+    <span class="mood-option-emoji">${mood.emoji}</span>
+    <span class="mood-option-label">${mood.name}</span>
+  `;
+  btn.onclick = () => {
+    document.querySelectorAll('.mood-option-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedMood = mood;
+  };
+  moodDiv.appendChild(btn);
+});
+
+// Build energy selector
+const energyDiv = document.getElementById('energySelector');
+for (let i = 1; i <= 5; i++) {
+  const dot = document.createElement('div');
+  dot.style.cssText = `flex:1; height:40px; background:${i <= 3 ? 'var(--accent)' : 'var(--surface2)'}; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:white; font-weight:700;`;
+  dot.textContent = i;
+  dot.onclick = () => {
+    selectedEnergy = i;
+    document.querySelectorAll('#energySelector div').forEach((d, idx) => {
+      d.style.background = idx < i ? 'var(--accent)' : 'var(--surface2)';
+    });
+  };
+  energyDiv.appendChild(dot);
+}
+
+function saveMood() {
+  const note = document.getElementById('noteInput').value.trim();
+  
+  const entry = {
+    id: Date.now(),
+    emoji: selectedMood.emoji,
+    mood: selectedMood.name,
+    value: selectedMood.value,
+    energy: selectedEnergy,
+    note: note,
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+  };
+  
+  entries.unshift(entry);
+  if (entries.length > 20) entries.pop();
+  
+  renderEntries();
+  updateStats();
+  
+  document.getElementById('noteInput').value = '';
+  
+  // Save to localStorage
+  localStorage.setItem('moodEntries', JSON.stringify(entries));
+}
+
+function renderEntries() {
+  const listDiv = document.getElementById('entriesList');
+  
+  if (entries.length === 0) {
+    listDiv.innerHTML = '<div style="color: var(--text3); text-align: center; padding: 40px;">No entries yet. Start tracking!</div>';
+    return;
+  }
+  
+  listDiv.innerHTML = entries.map(entry => `
+    <div class="entry-card">
+      <div class="entry-emoji-large">${entry.emoji}</div>
+      <div class="entry-details">
+        <div class="entry-mood-name">${entry.mood}</div>
+        ${entry.note ? `<div class="entry-note-text">"${entry.note}"</div>` : ''}
+        <div class="entry-time">${entry.date} • ${entry.time}</div>
+        <div class="energy-indicator">
+          ${Array(5).fill(0).map((_, i) => 
+            `<div class="energy-dot-small ${i < entry.energy ? 'filled' : ''}"></div>`
+          ).join('')}
+        </div>
+      </div>
+      <button onclick="deleteEntry(${entry.id})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:20px;">🗑️</button>
+    </div>
+  `).join('');
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  localStorage.setItem('moodEntries', JSON.stringify(entries));
+  renderEntries();
+  updateStats();
+}
+
+function updateStats() {
+  // Week view
+  const weekDiv = document.getElementById('weekView');
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  weekDiv.innerHTML = days.map(day => `
+    <div class="day-mood">😊</div>
+  `).join('');
+  
+  // Average mood
+  if (entries.length > 0) {
+    const avg = entries.reduce((sum, e) => sum + e.value, 0) / entries.length;
+    const avgEmoji = avg > 4 ? '😊' : avg > 3 ? '😐' : avg > 2 ? '😕' : '😢';
+    document.getElementById('avgMood').textContent = avgEmoji;
+  }
+}
+
+function logout() {
+  fetch('/api/logout', {method: 'POST'})
+    .then(() => window.location.href = '/login');
+}
+
+// Load saved entries
+const saved = localStorage.getItem('moodEntries');
+if (saved) {
+  entries = JSON.parse(saved);
+  renderEntries();
+  updateStats();
+} else {
+  // Add sample entries for demo
+  entries = [
+    {id: 1, emoji: '😊', mood: 'Happy', value: 5, energy: 4, note: 'Had a great day!', date: '2024-01-15', time: '10:30'},
+    {id: 2, emoji: '😐', mood: 'Neutral', value: 3, energy: 3, note: '', date: '2024-01-15', time: '14:20'},
+    {id: 3, emoji: '😊', mood: 'Happy', value: 5, energy: 5, note: 'Feeling energetic', date: '2024-01-14', time: '09:15'}
+  ];
+  renderEntries();
+  updateStats();
+}
+</script>
+</body>
+</html>

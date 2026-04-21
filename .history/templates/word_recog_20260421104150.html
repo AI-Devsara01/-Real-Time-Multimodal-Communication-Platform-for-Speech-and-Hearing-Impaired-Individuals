@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Letter Recognition — CommuniSense | ASL A-Z</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: rgba(15, 15, 25, 0.6);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-light: rgba(255, 255, 255, 0.15);
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --accent3: #06b6d4;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --text-primary: #ffffff;
+        --text-secondary: rgba(255, 255, 255, 0.7);
+        --text-muted: rgba(255, 255, 255, 0.4);
+        --font-display: 'Inter', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        overflow-x: hidden;
+    }
+
+    #bg-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+    }
+
+    .glass-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 12px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: white;
+        text-decoration: none;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        background: var(--accent);
+        border-radius: 50%;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+    }
+
+    .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .nav-link:hover, .nav-link.active {
+        color: white;
+    }
+
+    .main-layout {
+        padding: 100px 40px 60px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        background: rgba(99, 102, 241, 0.1);
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 16px;
+    }
+
+    .detection-layout {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 24px;
+    }
+
+    .cam-box {
+        background: #000;
+        border-radius: 24px;
+        overflow: hidden;
+        aspect-ratio: 4/3;
+        position: relative;
+        border: 1px solid var(--glass-border);
+    }
+
+    #video-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transform: scaleX(-1);
+    }
+
+    .big-letter {
+        font-family: var(--font-display);
+        font-size: 120px;
+        font-weight: 800;
+        text-align: center;
+        line-height: 1;
+        background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: breathe 1s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .panel {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--glass-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+
+    .panel-body {
+        padding: 20px;
+    }
+
+    .alphabet-grid {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+        gap: 8px;
+    }
+
+    .alpha-key {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        padding: 10px 4px;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .alpha-key:hover {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: var(--glass-border-light);
+        transform: scale(1.05);
+    }
+
+    .alpha-key.hit {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+        animation: keyHit 0.3s ease;
+    }
+
+    @keyframes keyHit {
+        0% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+    }
+
+    .word-out {
+        font-family: var(--font-display);
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .letter-chip {
+        display: inline-block;
+        padding: 4px 12px;
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 10px;
+        font-size: 28px;
+        font-weight: 700;
+        animation: fadeUp 0.2s ease;
+    }
+
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hand-guide {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+    }
+
+    .hand-item {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+        transition: 0.2s;
+    }
+
+    .hand-item:hover {
+        border-color: var(--glass-border-light);
+        transform: translateY(-2px);
+    }
+
+    .hand-emoji {
+        font-size: 28px;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .hand-label {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: white;
+    }
+
+    .btn-secondary {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+        border-color: var(--glass-border-light);
+        color: white;
+    }
+
+    .btn-success {
+        background: var(--success);
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    .badge {
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--accent);
+    }
+
+    .conf-bar {
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 16px;
+    }
+
+    .conf-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-radius: 4px;
+        transition: width 0.3s;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        transition: all 0.3s;
+    }
+
+    .status-active {
+        background: var(--success);
+        box-shadow: 0 0 8px var(--success);
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 16px;
+        text-align: center;
+    }
+
+    .finger-status {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .finger-chip {
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+    }
+
+    .finger-chip.extended {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: var(--success);
+        color: var(--success);
+    }
+
+    @media (max-width: 968px) {
+        .detection-layout {
+            grid-template-columns: 1fr;
+        }
+        .main-layout {
+            padding: 100px 20px 40px;
+        }
+        .nav-links {
+            display: none;
+        }
+        .big-letter {
+            font-size: 80px;
+        }
+        .alphabet-grid {
+            grid-template-columns: repeat(7, 1fr);
+        }
+    }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav class="glass-nav">
+    <a href="/dashboard" class="nav-logo">
+        <div class="dot"></div>
+        <span>CommuniSense</span>
+    </a>
+    <div class="nav-links">
+        <a href="/word_recog" class="nav-link">Words</a>
+        <a href="/letter_recog" class="nav-link active">Letters</a>
+        <a href="/number_recog" class="nav-link">Numbers</a>
+        <a href="/tts" class="nav-link">TTS</a>
+        <a href="/stt" class="nav-link">STT</a>
+        <a href="/games" class="nav-link">Games</a>
+        <a href="/dashboard" class="nav-link">Home</a>
+    </div>
+</nav>
+
+<div class="main-layout">
+    <div style="margin-bottom: 40px">
+        <span class="section-label">🤟 ASL Recognition</span>
+        <h1 style="font-size: clamp(32px, 4vw, 52px); font-weight: 800;">Letter Recognition</h1>
+        <p style="color: var(--text-muted); margin-top: 8px;">Show ASL hand signs A-Z - Real-time detection with hand landmarks!</p>
+    </div>
+
+    <div class="detection-layout">
+        <div>
+            <div class="cam-box">
+                <canvas id="video-canvas"></canvas>
+                <div id="no-cam" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(10,10,15,0.95); gap: 16px; z-index: 10;">
+                    <div style="font-size: 48px;">📷</div>
+                    <p style="color: var(--text-muted);">Camera not started</p>
+                    <button class="btn btn-primary" onclick="startCamera()">Enable Camera</button>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="startBtn" onclick="startCamera()">▶ Start</button>
+                <button class="btn btn-secondary" id="stopBtn" onclick="stopCamera()" disabled>■ Stop</button>
+                <button class="btn btn-ghost" onclick="deleteLastChar()">⌫ Delete</button>
+                <button class="btn btn-ghost" onclick="addSpace()">⎵ Space</button>
+                <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+                <button class="btn btn-success" onclick="speakCurrentWord()">🔊 Speak</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+                <div class="status-dot" id="statusDot" style="background: var(--text-muted);"></div>
+                <span id="statusText" style="font-size: 12px; color: var(--text-muted);">Camera offline</span>
+                <span style="flex:1"></span>
+                <span style="font-size: 11px; color: var(--accent);">🎯 Hand Landmarks Active</span>
+            </div>
+
+            <!-- Finger Status -->
+            <div class="finger-status" id="fingerStatus">
+                <span class="finger-chip">🤚 No hand detected</span>
+            </div>
+
+            <!-- Alphabet Keyboard -->
+            <div class="panel" style="margin-top: 20px;">
+                <div class="panel-header">
+                    <span class="panel-title">Alphabet — tap to add</span>
+                    <span class="badge">A–Z</span>
+                </div>
+                <div class="panel-body">
+                    <div class="alphabet-grid" id="alphabetGrid"></div>
+                </div>
+            </div>
+
+            <!-- Hand Guide -->
+            <div class="panel" style="margin-top: 16px;">
+                <div class="panel-header">
+                    <span class="panel-title">Quick ASL Reference</span>
+                </div>
+                <div class="panel-body">
+                    <div class="hand-guide" id="handGuide"></div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Detected Letter</span>
+                    <span id="confBadge" class="badge">0%</span>
+                </div>
+                <div class="panel-body" style="text-align: center; padding: 32px;">
+                    <div class="big-letter" id="detectedLetter">—</div>
+                    <div class="conf-bar">
+                        <div class="conf-fill" id="confFill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="flex: 1;">
+                <div class="panel-header">
+                    <span class="panel-title">Building Word</span>
+                    <button class="btn btn-sm btn-ghost" onclick="copyCurrentWord()">Copy</button>
+                </div>
+                <div class="panel-body">
+                    <div class="word-out" id="wordOut"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Full Sentence</span>
+                </div>
+                <div class="panel-body">
+                    <div style="font-size: 16px; min-height: 60px; word-break: break-word; line-height: 1.6; color: var(--text-secondary);" id="sentenceOut"></div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="card">
+                    <div style="font-size: 32px; font-weight: 800; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent;" id="letterCount">0</div>
+                    <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Letters</div>
+                </div>
+                <div class="card">
+                    <div style="font-size: 32px; font-weight: 800; color: var(--success);" id="wordCount">0</div>
+                    <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">Words</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MediaPipe Library -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
+<!-- Three.js Background -->
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('bg-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 15);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 1500;
+    const posArray = new Float32Array(particlesCount * 3);
+    
+    for (let i = 0; i < particlesCount; i++) {
+        posArray[i * 3] = (Math.random() - 0.5) * 40;
+        posArray[i * 3 + 1] = (Math.random() - 0.5) * 30;
+        posArray[i * 3 + 2] = (Math.random() - 0.5) * 30 - 15;
+    }
+    
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particlesMaterial = new THREE.PointsMaterial({ size: 0.06, color: 0x6366f1, transparent: true, opacity: 0.4 });
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+    
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+    
+    let time = 0;
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.005;
+        particlesMesh.rotation.y = time * 0.1;
+        particlesMesh.rotation.x = Math.sin(time * 0.2) * 0.1;
+        camera.position.x = Math.sin(time * 0.2) * 0.2;
+        camera.position.y = Math.cos(time * 0.15) * 0.1;
+        camera.lookAt(0, 0, -5);
+        renderer.render(scene, camera);
+    }
+    animate();
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+
+<script>
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    
+    const ASL_EMOJIS = {
+        'A':'✊', 'B':'✋', 'C':'🤏', 'D':'☝️', 'E':'🤜', 'F':'👌',
+        'G':'👉', 'H':'🤞', 'I':'🤙', 'J':'🤙', 'K':'✌️', 'L':'👆',
+        'M':'✊', 'N':'✊', 'O':'👌', 'P':'👇', 'Q':'👇', 'R':'🤞',
+        'S':'✊', 'T':'✊', 'U':'✌️', 'V':'✌️', 'W':'🖖', 'X':'☝️',
+        'Y':'🤙', 'Z':'☝️'
+    };
+
+    let camera = null;
+    let hands = null;
+    let isCameraRunning = false;
+    let currentWord = '';
+    let sentence = '';
+    let letterCount = 0;
+    let wordCount = 0;
+    let lastLetter = '';
+    let lastTime = 0;
+    let stabilityBuffer = [];
+    const BUFFER_SIZE = 5;
+    
+    const BACKEND_URL = '/api/letter-predict';
+
+    function buildAlphabetGrid() {
+        const grid = document.getElementById('alphabetGrid');
+        grid.innerHTML = ALPHABET.map(letter => `
+            <div class="alpha-key" id="key-${letter}" onclick="addLetter('${letter}')">
+                ${letter}
+            </div>
+        `).join('');
+    }
+
+    function buildHandGuide() {
+        const guide = document.getElementById('handGuide');
+        guide.innerHTML = ALPHABET.slice(0, 12).map(letter => `
+            <div class="hand-item">
+                <span class="hand-emoji">${ASL_EMOJIS[letter] || '✋'}</span>
+                <span class="hand-label">${letter}</span>
+            </div>
+        `).join('');
+    }
+
+    // Advanced ASL letter detection with finger counting
+    function advancedASLDetection(landmarks) {
+        // Count extended fingers
+        let extendedCount = 0;
+        let thumbExtended = false;
+        
+        // Check thumb (x-coordinate comparison)
+        const thumbTip = landmarks[4];
+        const thumbIP = landmarks[3];
+        thumbExtended = thumbTip.x < thumbIP.x - 0.02;
+        
+        // Check index finger
+        const indexTip = landmarks[8];
+        const indexPIP = landmarks[6];
+        const indexExtended = indexTip.y < indexPIP.y - 0.01;
+        if (indexExtended) extendedCount++;
+        
+        // Check middle finger
+        const middleTip = landmarks[12];
+        const middlePIP = landmarks[10];
+        const middleExtended = middleTip.y < middlePIP.y - 0.01;
+        if (middleExtended) extendedCount++;
+        
+        // Check ring finger
+        const ringTip = landmarks[16];
+        const ringPIP = landmarks[14];
+        const ringExtended = ringTip.y < ringPIP.y - 0.01;
+        if (ringExtended) extendedCount++;
+        
+        // Check pinky
+        const pinkyTip = landmarks[20];
+        const pinkyPIP = landmarks[18];
+        const pinkyExtended = pinkyTip.y < pinkyPIP.y - 0.01;
+        if (pinkyExtended) extendedCount++;
+        
+        // Rule-based letter detection
+        if (extendedCount === 0 && !thumbExtended) return { letter: 'A', confidence: 0.95 };
+        if (extendedCount === 1 && indexExtended && !middleExtended) return { letter: 'B', confidence: 0.92 };
+        if (extendedCount === 2 && indexExtended && middleExtended && !ringExtended) return { letter: 'V', confidence: 0.90 };
+        if (extendedCount === 3 && indexExtended && middleExtended && ringExtended) return { letter: 'W', confidence: 0.88 };
+        if (extendedCount === 4 && !thumbExtended) return { letter: 'B', confidence: 0.85 };
+        if (extendedCount === 4 && thumbExtended) return { letter: 'C', confidence: 0.82 };
+        if (thumbExtended && extendedCount === 0) return { letter: 'S', confidence: 0.80 };
+        if (thumbExtended && extendedCount === 1 && pinkyExtended) return { letter: 'I', confidence: 0.78 };
+        
+        return { letter: null, confidence: 0.5 };
+    }
+
+    function drawHand(ctx, landmarks, width, height) {
+        if (!landmarks) return;
+        
+        const connections = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17]];
+        
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 3;
+        connections.forEach(conn => {
+            const p1 = landmarks[conn[0]], p2 = landmarks[conn[1]];
+            if (p1 && p2) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x * width, p1.y * height);
+                ctx.lineTo(p2.x * width, p2.y * height);
+                ctx.stroke();
+            }
+        });
+        
+        landmarks.forEach(lm => {
+            ctx.beginPath();
+            ctx.arc(lm.x * width, lm.y * height, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = '#8b5cf6';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        });
+    }
+
+    async function startCamera() {
+        try {
+            const videoElement = document.createElement('video');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            videoElement.srcObject = stream;
+            await videoElement.play();
+            
+            document.getElementById('no-cam').style.display = 'none';
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('statusDot').style.cssText = 'background: var(--success); animation: pulse 2s infinite';
+            document.getElementById('statusText').textContent = 'Detecting letters...';
+            document.getElementById('fingerStatus').innerHTML = '<span class="finger-chip extended">🎯 Hand detection active - Showing landmarks</span>';
+            
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.5
+            });
+            
+            hands.onResults(onHandResults);
+            
+            camera = new Camera(videoElement, {
+                onFrame: async () => { if (hands) await hands.send({ image: videoElement }); },
+                width: 640,
+                height: 480
+            });
+            
+            await camera.start();
+            isCameraRunning = true;
+            
+        } catch (error) {
+            console.error('Camera error:', error);
+            alert('Please allow camera access');
+        }
+    }
+
+    async function onHandResults(results) {
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+            const landmarks = results.multiHandLandmarks[0];
+            
+            // Draw hand skeleton (landmarks)
+            drawHand(ctx, landmarks, canvas.width, canvas.height);
+            
+            document.getElementById('fingerStatus').innerHTML = '<span class="finger-chip extended">✋ Hand detected! Landmarks visible</span>';
+            
+            // Use local detection for instant results
+            const detection = advancedASLDetection(landmarks);
+            
+            if (detection.letter && detection.confidence > 0.6) {
+                // Add to stability buffer
+                stabilityBuffer.push(detection.letter);
+                if (stabilityBuffer.length > BUFFER_SIZE) stabilityBuffer.shift();
+                
+                // Get most common letter from buffer
+                const counts = {};
+                stabilityBuffer.forEach(l => { counts[l] = (counts[l] || 0) + 1; });
+                let stableLetter = detection.letter;
+                let maxCount = 0;
+                for (const [letter, count] of Object.entries(counts)) {
+                    if (count > maxCount) {
+                        maxCount = count;
+                        stableLetter = letter;
+                    }
+                }
+                
+                const confidence = Math.min(0.95, detection.confidence + (maxCount / BUFFER_SIZE) * 0.05);
+                
+                document.getElementById('detectedLetter').textContent = stableLetter;
+                document.getElementById('confBadge').textContent = `${Math.round(confidence * 100)}%`;
+                document.getElementById('confFill').style.width = `${confidence * 100}%`;
+                
+                document.querySelectorAll('.alpha-key').forEach(k => k.classList.remove('hit'));
+                const key = document.getElementById(`key-${stableLetter}`);
+                if (key) key.classList.add('hit');
+                
+                const now = Date.now();
+                if (stableLetter !== lastLetter && now - lastTime > 600 && confidence > 0.7) {
+                    addLetter(stableLetter);
+                    lastLetter = stableLetter;
+                    lastTime = now;
+                    
+                    // Speak the letter
+                    const utterance = new SpeechSynthesisUtterance(stableLetter);
+                    utterance.rate = 1.2;
+                    window.speechSynthesis.speak(utterance);
+                }
+            } else {
+                document.getElementById('detectedLetter').textContent = '?';
+                document.getElementById('confFill').style.width = '15%';
+            }
+        } else {
+            document.getElementById('detectedLetter').textContent = '—';
+            document.getElementById('confBadge').textContent = '0%';
+            document.getElementById('confFill').style.width = '0%';
+            document.getElementById('fingerStatus').innerHTML = '<span class="finger-chip">🤚 No hand detected - Show ASL sign</span>';
+            stabilityBuffer.length = 0;
+        }
+    }
+
+    function stopCamera() {
+        if (camera) {
+            camera.stop();
+            camera = null;
+        }
+        if (hands) {
+            hands.close();
+            hands = null;
+        }
+        isCameraRunning = false;
+        
+        document.getElementById('no-cam').style.display = 'flex';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('statusText').textContent = 'Camera offline';
+        document.getElementById('statusDot').style.cssText = 'background: var(--text-muted); animation: none';
+        document.getElementById('fingerStatus').innerHTML = '<span class="finger-chip">🤚 Camera offline</span>';
+        
+        const canvas = document.getElementById('video-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function addLetter(letter) {
+        currentWord += letter;
+        letterCount++;
+        document.getElementById('letterCount').textContent = letterCount;
+        
+        const wordOut = document.getElementById('wordOut');
+        wordOut.innerHTML = currentWord.split('').map(c => `<span class="letter-chip">${c}</span>`).join('');
+        
+        const detectedDiv = document.getElementById('detectedLetter');
+        detectedDiv.style.animation = 'none';
+        detectedDiv.offsetHeight;
+        detectedDiv.style.animation = 'breathe 0.5s ease-in-out';
+    }
+
+    function addSpace() {
+        if (currentWord) {
+            sentence += (sentence ? ' ' : '') + currentWord;
+            wordCount++;
+            document.getElementById('wordCount').textContent = wordCount;
+            document.getElementById('sentenceOut').textContent = sentence;
+        }
+        currentWord = '';
+        document.getElementById('wordOut').innerHTML = '';
+        lastLetter = '';
+        stabilityBuffer.length = 0;
+    }
+
+    function deleteLastChar() {
+        if (currentWord.length > 0) {
+            currentWord = currentWord.slice(0, -1);
+            letterCount = Math.max(0, letterCount - 1);
+            document.getElementById('letterCount').textContent = letterCount;
+            document.getElementById('wordOut').innerHTML = currentWord.split('').map(c => `<span class="letter-chip">${c}</span>`).join('');
+        } else if (sentence.length > 0) {
+            const words = sentence.split(' ');
+            words.pop();
+            sentence = words.join(' ');
+            wordCount = words.length;
+            document.getElementById('wordCount').textContent = wordCount;
+            document.getElementById('sentenceOut').textContent = sentence;
+        }
+    }
+
+    function clearAll() {
+        currentWord = '';
+        sentence = '';
+        letterCount = 0;
+        wordCount = 0;
+        lastLetter = '';
+        stabilityBuffer.length = 0;
+        document.getElementById('wordOut').innerHTML = '';
+        document.getElementById('sentenceOut').textContent = '';
+        document.getElementById('letterCount').textContent = '0';
+        document.getElementById('wordCount').textContent = '0';
+        document.getElementById('detectedLetter').textContent = '—';
+        document.getElementById('confBadge').textContent = '0%';
+        document.getElementById('confFill').style.width = '0%';
+    }
+
+    function speakCurrentWord() {
+        const text = (sentence + (sentence && currentWord ? ' ' : '') + currentWord).trim();
+        if (!text) {
+            showToast('Nothing to speak');
+            return;
+        }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function copyCurrentWord() {
+        const text = (sentence + (sentence && currentWord ? ' ' : '') + currentWord).trim();
+        if (text) {
+            navigator.clipboard.writeText(text);
+            showToast('Copied!');
+        }
+    }
+
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.textContent = msg;
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 20px;border-radius:10px;z-index:1000;font-size:14px;';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+
+    buildAlphabetGrid();
+    buildHandGuide();
+    console.log("✅ Letter Recognition Ready - Hand landmarks will appear when camera starts!");
+</script>
+</body>
+</html>

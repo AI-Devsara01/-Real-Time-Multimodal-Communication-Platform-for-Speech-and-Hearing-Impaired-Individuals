@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CommuniSense - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .logo span {
+            font-size: 1.5rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .username {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .logout-btn {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #b91c1c;
+            transform: scale(1.05);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Welcome Section */
+        .welcome {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .welcome h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome p {
+            color: #666;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Features Grid */
+        .features-title {
+            color: white;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .feature-emoji {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-desc {
+            color: #666;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .feature-badge {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #667eea;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            margin-top: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">
+            <span>🤟</span> CommuniSense
+        </div>
+        <div class="user-info">
+            <span class="username" id="username">Loading...</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="welcome">
+            <h1 id="welcomeMsg">Welcome to CommuniSense! 👋</h1>
+            <p>Your complete communication assistant for hearing & speech impaired</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-number">16</div>
+                <div class="stat-label">Features</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎙️</div>
+                <div class="stat-number">98%</div>
+                <div class="stat-label">Accuracy</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-number">&lt;300ms</div>
+                <div class="stat-label">Response Time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🌍</div>
+                <div class="stat-number">50+</div>
+                <div class="stat-label">Languages</div>
+            </div>
+        </div>
+
+        <h2 class="features-title">✨ Choose a Feature</h2>
+        <div class="features-grid">
+            <div class="feature-card" onclick="goTo('tts')">
+                <div class="feature-emoji">🔊</div>
+                <div class="feature-name">Text to Speech</div>
+                <div class="feature-desc">Convert text to natural speech output</div>
+                <span class="feature-badge">Real-time</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('stt')">
+                <div class="feature-emoji">🎙️</div>
+                <div class="feature-name">Speech to Text</div>
+                <div class="feature-desc">Convert speech to written text</div>
+                <span class="feature-badge">Live</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('word_recog')">
+                <div class="feature-emoji">📝</div>
+                <div class="feature-name">Word Recognition</div>
+                <div class="feature-desc">Recognize common sign language words</div>
+                <span class="feature-badge">AI Powered</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('letter_recog')">
+                <div class="feature-emoji">🔤</div>
+                <div class="feature-name">Letter Recognition</div>
+                <div class="feature-desc">Recognize A-Z sign language letters</div>
+                <span class="feature-badge">Real-time</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('number_recog')">
+                <div class="feature-emoji">🔢</div>
+                <div class="feature-name">Number Recognition</div>
+                <div class="feature-desc">Recognize 0-9 sign language numbers</div>
+                <span class="feature-badge">High Accuracy</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('games')">
+                <div class="feature-emoji">🎮</div>
+                <div class="feature-name">Learning Games</div>
+                <div class="feature-desc">Fun games to learn sign language</div>
+                <span class="feature-badge">Interactive</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('image_gen')">
+                <div class="feature-emoji">🖼️</div>
+                <div class="feature-name">AI Image Generator</div>
+                <div class="feature-desc">Generate images from text prompts</div>
+                <span class="feature-badge">AI</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('emotion_translate')">
+                <div class="feature-emoji">😊</div>
+                <div class="feature-name">Emotion Translator</div>
+                <div class="feature-desc">Detect emotion from text with emojis</div>
+                <span class="feature-badge">New</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('visual_alert')">
+                <div class="feature-emoji">🚨</div>
+                <div class="feature-name">Visual Alert System</div>
+                <div class="feature-desc">Visual alerts for important sounds</div>
+                <span class="feature-badge">Accessibility</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('sign_dictionary')">
+                <div class="feature-emoji">📖</div>
+                <div class="feature-name">Sign Dictionary</div>
+                <div class="feature-desc">Searchable sign language dictionary</div>
+                <span class="feature-badge">Reference</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('mood_journal')">
+                <div class="feature-emoji">📓</div>
+                <div class="feature-name">Mood Journal</div>
+                <div class="feature-desc">Track your daily mood and feelings</div>
+                <span class="feature-badge">Wellness</span>
+            </div>
+
+            <div class="feature-card" onclick="goTo('lip_sync')">
+                <div class="feature-emoji">👄</div>
+                <div class="feature-name">Lip Sync Reader</div>
+                <div class="feature-desc">AI-powered lip reading assistance</div>
+                <span class="feature-badge">Advanced</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get username from session
+        async function getCurrentUser() {
+            try {
+                const response = await fetch('/api/current_user');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('username').textContent = data.username;
+                    document.getElementById('welcomeMsg').textContent = `Welcome back, ${data.username}! 👋`;
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        function logout() {
+            fetch('/api/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(() => {
+                window.location.href = '/login';
+            });
+        }
+
+        function goTo(feature) {
+            window.location.href = `/${feature}`;
+        }
+
+        getCurrentUser();
+    </script>
+</body>
+</html>

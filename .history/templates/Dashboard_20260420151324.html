@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommBridge — Real-Time Multimodal Communication</title>
+<link rel="stylesheet" href="static/base.css">
+<style>
+.hero { position: relative; padding: 160px 40px 100px; text-align: center; }
+.hero-bg-glow {
+  position: absolute; top: 20%; left: 50%;
+  width: 800px; height: 600px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(99,102,241,0.12), transparent 70%);
+  pointer-events: none;
+}
+.hero-pills { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
+.pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(99,102,241,0.08);
+  border: 1px solid rgba(99,102,241,0.2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+.hero-cta { display: flex; gap: 14px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
+.feature-section { padding: 80px 40px; max-width: 1280px; margin: 0 auto; }
+.grid-features { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media(max-width:1100px){.grid-features{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.grid-features{grid-template-columns:1fr}}
+.ticker {
+  padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  overflow: hidden; position: relative; margin-bottom: 80px;
+}
+.ticker-inner {
+  display: flex; gap: 60px;
+  animation: ticker 20s linear infinite;
+  width: max-content;
+}
+@keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+.ticker-item { font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-dim); white-space: nowrap; display: flex; align-items: center; gap: 12px; }
+.ticker-item::before { content: '●'; color: var(--accent); font-size: 6px; }
+.bottom-cta {
+  text-align: center; padding: 100px 40px;
+  background: linear-gradient(to bottom, transparent, rgba(99,102,241,0.05));
+}
+.stat-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); margin: 0 40px 80px; border-radius: 16px; overflow: hidden; }
+.stat-strip-item { background: var(--surface); padding: 32px; text-align: center; }
+.stat-strip-num { font-family: var(--font-display); font-size: 44px; font-weight: 800; letter-spacing: -0.04em; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.stat-strip-label { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-top: 8px; }
+@media(max-width:768px){.stat-strip{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="cursor"></div><div class="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="dot"></div>CommBridge</a>
+  <div class="nav-links">
+    <a href="word_recog.html" class="nav-link">Words</a>
+    <a href="letter_recog.html" class="nav-link">Letters</a>
+    <a href="number_recog.html" class="nav-link">Numbers</a>
+    <a href="tts.html" class="nav-link">TTS</a>
+    <a href="stt.html" class="nav-link">STT</a>
+    <a href="games.html" class="nav-link">Games</a>
+    <a href="image_gen.html" class="nav-link">AI Art</a>
+    <a href="login.html" class="nav-link" id="auth-link">Sign in</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-bg-glow"></div>
+  <div class="hero-pills">
+    <span class="pill">Real-time ASL Recognition</span>
+    <span class="pill">50+ Languages</span>
+    <span class="pill">AI-Powered</span>
+    <span class="pill">100% Accessible</span>
+  </div>
+  <h1 class="hero-title" style="max-width:900px;margin:0 auto 24px;">
+    Real-Time Multimodal<br><span class="accent">Communication</span>
+  </h1>
+  <p class="hero-subtitle" style="margin:0 auto 40px;max-width:560px;">
+    Designed for hearing and speech impaired individuals. Communicate naturally using sign language, speech, text, and AI — in any language.
+  </p>
+  <div class="hero-cta">
+    <a href="signup.html" class="btn btn-primary btn-lg">Get started free <span>→</span></a>
+    <a href="#features" class="btn btn-ghost btn-lg">Explore features</a>
+  </div>
+</section>
+
+<div class="ticker">
+  <div class="ticker-inner" id="ticker-inner">
+    <span class="ticker-item">Word Recognition</span>
+    <span class="ticker-item">Letter Recognition</span>
+    <span class="ticker-item">Number Recognition</span>
+    <span class="ticker-item">Text to Speech · 50+ Languages</span>
+    <span class="ticker-item">Speech to Text · 50+ Languages</span>
+    <span class="ticker-item">Cognitive Games</span>
+    <span class="ticker-item">AI Image Generator</span>
+    <span class="ticker-item">Emergency SOS</span>
+    <span class="ticker-item">Emotion Mirror</span>
+    <span class="ticker-item">Sign Dictionary</span>
+    <span class="ticker-item">Communication Board</span>
+    <span class="ticker-item">Daily Phrase Builder</span>
+    <span class="ticker-item">Lip Reading Trainer</span>
+    <!-- duplicate for seamless loop -->
+    <span class="ticker-item">Word Recognition</span>
+    <span class="ticker-item">Letter Recognition</span>
+    <span class="ticker-item">Number Recognition</span>
+    <span class="ticker-item">Text to Speech · 50+ Languages</span>
+    <span class="ticker-item">Speech to Text · 50+ Languages</span>
+    <span class="ticker-item">Cognitive Games</span>
+    <span class="ticker-item">AI Image Generator</span>
+    <span class="ticker-item">Emergency SOS</span>
+  </div>
+</div>
+
+<div class="stat-strip">
+  <div class="stat-strip-item"><div class="stat-strip-num">97%</div><div class="stat-strip-label">Sign Accuracy</div></div>
+  <div class="stat-strip-item"><div class="stat-strip-num">50+</div><div class="stat-strip-label">Languages</div></div>
+  <div class="stat-strip-item"><div class="stat-strip-num">14</div><div class="stat-strip-label">Tools</div></div>
+  <div class="stat-strip-item"><div class="stat-strip-num">∞</div><div class="stat-strip-label">Conversations</div></div>
+</div>
+
+<section class="feature-section" id="features">
+  <p class="section-label">All Features</p>
+  <h2 class="section-title" style="margin-bottom:16px">Everything you need to<br>communicate freely</h2>
+  <p class="section-subtitle" style="margin-bottom:48px">Core accessibility tools plus powerful extras that solve real daily challenges.</p>
+  
+  <div class="grid-features">
+    <a href="word_recog.html" class="feature-card">
+      <div class="feature-icon">🤟</div>
+      <div class="feature-title">Word Recognition</div>
+      <div class="feature-desc">Sign complete words via ASL, detected in real-time using your webcam with 97% accuracy.</div>
+      <span class="feature-tag">ASL · Real-time</span>
+    </a>
+    <a href="letter_recog.html" class="feature-card">
+      <div class="feature-icon">🔤</div>
+      <div class="feature-title">Letter Recognition</div>
+      <div class="feature-desc">Spell out letter by letter using ASL finger-spelling. Builds words as you go.</div>
+      <span class="feature-tag">Finger-spelling</span>
+    </a>
+    <a href="number_recog.html" class="feature-card">
+      <div class="feature-icon">🔢</div>
+      <div class="feature-title">Number Recognition</div>
+      <div class="feature-desc">Show digits 0–9 with your hands. Sequences spoken aloud automatically.</div>
+      <span class="feature-tag">Digits · Voice</span>
+    </a>
+    <a href="tts.html" class="feature-card">
+      <div class="feature-icon">🔊</div>
+      <div class="feature-title">Text to Speech</div>
+      <div class="feature-desc">Type anything, hear it spoken in 50+ languages with natural-sounding voices.</div>
+      <span class="feature-tag">50+ Languages</span>
+    </a>
+    <a href="stt.html" class="feature-card">
+      <div class="feature-icon">🎤</div>
+      <div class="feature-title">Speech to Text</div>
+      <div class="feature-desc">Speak and get instant transcription in any language. Translate on the fly.</div>
+      <span class="feature-tag">Real-time · Translate</span>
+    </a>
+    <a href="games.html" class="feature-card">
+      <div class="feature-icon">🎮</div>
+      <div class="feature-title">Cognitive Games</div>
+      <div class="feature-desc">5 scientifically-designed games for memory, reaction, emotion recognition and more.</div>
+      <span class="feature-tag">5 Games · Levels</span>
+    </a>
+    <a href="image_gen.html" class="feature-card">
+      <div class="feature-icon">🎨</div>
+      <div class="feature-title">AI Image Generator</div>
+      <div class="feature-desc">Generate images from text to express ideas that are hard to say in words.</div>
+      <span class="feature-tag">AI · Creative</span>
+    </a>
+    <a href="emotion_mirror.html" class="feature-card">
+      <div class="feature-icon">😊</div>
+      <div class="feature-title">Emotion Mirror</div>
+      <div class="feature-desc">See your facial expressions analyzed in real-time. Practice emotional communication.</div>
+      <span class="feature-tag">New · AI Camera</span>
+    </a>
+    <a href="sign_dictionary.html" class="feature-card">
+      <div class="feature-icon">📖</div>
+      <div class="feature-title">Sign Dictionary</div>
+      <div class="feature-desc">Look up any word's ASL sign with animated illustrations and step-by-step guides.</div>
+      <span class="feature-tag">New · 1000+ Signs</span>
+    </a>
+    <a href="comm_board.html" class="feature-card">
+      <div class="feature-icon">📋</div>
+      <div class="feature-title">Communication Board</div>
+      <div class="feature-desc">AAC-style visual communication board. Tap symbols to build sentences quickly.</div>
+      <span class="feature-tag">New · AAC</span>
+    </a>
+    <a href="phrase_builder.html" class="feature-card">
+      <div class="feature-icon">💬</div>
+      <div class="feature-title">Daily Phrase Builder</div>
+      <div class="feature-desc">Pre-loaded phrases for daily situations. Customize your own. Speak instantly.</div>
+      <span class="feature-tag">New · Customizable</span>
+    </a>
+    <a href="lip_trainer.html" class="feature-card">
+      <div class="feature-icon">👄</div>
+      <div class="feature-title">Lip Reading Trainer</div>
+      <div class="feature-desc">AI-guided lip reading practice with difficulty levels and scoring system.</div>
+      <span class="feature-tag">New · Training</span>
+    </a>
+    <a href="sos.html" class="feature-card" style="border-color:rgba(239,68,68,0.2)">
+      <div class="feature-icon" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.2)">🆘</div>
+      <div class="feature-title">Emergency SOS</div>
+      <div class="feature-desc">One-tap emergency alerts with location and pre-configured messages for crisis situations.</div>
+      <span class="feature-tag" style="color:var(--error);background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3)">Critical · Safety</span>
+    </a>
+    <a href="translator.html" class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <div class="feature-title">Live Translator</div>
+      <div class="feature-desc">Translate text or speech between 50+ languages in real time with voice output.</div>
+      <span class="feature-tag">50+ Languages</span>
+    </a>
+  </div>
+</section>
+
+<div class="bottom-cta">
+  <h2 style="font-family:var(--font-display);font-size:clamp(32px,5vw,64px);font-weight:800;letter-spacing:-0.04em;margin-bottom:20px;">Start communicating<br><span style="background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">without limits</span></h2>
+  <p style="color:var(--text-muted);font-size:18px;margin-bottom:40px;">Free forever. No sign-up required for basic features.</p>
+  <a href="signup.html" class="btn btn-primary btn-lg">Create free account →</a>
+</div>
+
+<footer style="padding:40px;border-top:1px solid var(--border);text-align:center;">
+  <p style="font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--text-dim)">
+    CommBridge © 2024 — Real-Time Multimodal Communication for Hearing & Speech Impaired Individuals
+  </p>
+</footer>
+
+<script src="static/base.js"></script>
+<script>
+const user = Session.user();
+if (user) {
+  const link = document.getElementById('auth-link');
+  if (link) { link.textContent = user.firstName || 'Account'; link.href = '#'; }
+}
+</script>
+</body>
+</html>

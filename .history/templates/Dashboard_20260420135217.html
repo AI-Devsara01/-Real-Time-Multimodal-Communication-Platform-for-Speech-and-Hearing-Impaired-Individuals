@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Dashboard</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .hero-wrap { padding:9rem 0 3rem; text-align:center; }
+  .tagline-badge {
+    display:inline-flex; align-items:center; gap:.5rem;
+    padding:.35rem 1rem; border-radius:999px; margin-bottom:2rem;
+    background:rgba(79,139,255,.1); border:1px solid rgba(79,139,255,.25);
+    font-size:.78rem; font-weight:600; color:var(--accent); letter-spacing:.06em;
+  }
+  .tagline-badge .dot { width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse-dot 2s infinite; }
+  .hero-title {
+    font-size:clamp(3rem,7vw,5.5rem);
+    background:linear-gradient(135deg,#fff 0%,var(--accent2) 50%,var(--accent) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    line-height:1; margin-bottom:1.5rem;
+  }
+  .hero-sub { font-size:1.15rem;color:var(--text2);max-width:580px;margin:0 auto 3rem; line-height:1.8; }
+  .hero-actions { display:flex;gap:1rem;justify-content:center;flex-wrap:wrap; }
+
+  .section-label {
+    font-size:.72rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--text3); margin-bottom:1.5rem;
+    display:flex; align-items:center; gap:.75rem;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border2); }
+
+  .features-section { padding:2rem 0 5rem; }
+
+  .feature-tag { font-size:.68rem; font-weight:700; letter-spacing:.06em; padding:.2rem .6rem; border-radius:999px; text-transform:uppercase; }
+  .tag-core  { background:rgba(79,139,255,.12); color:var(--accent); }
+  .tag-new   { background:rgba(0,229,255,.12);  color:var(--accent2); }
+  .tag-game  { background:rgba(255,79,139,.12); color:var(--accent3); }
+
+  .stats-row {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:1rem;
+    padding:2rem 0; border-top:1px solid var(--border2); border-bottom:1px solid var(--border2);
+    margin-bottom:4rem;
+  }
+  .stat { text-align:center; }
+  .stat-num { font-family:var(--font-head); font-size:2.5rem; font-weight:800; color:var(--accent); }
+  .stat-label { font-size:.8rem; color:var(--text2); margin-top:.25rem; }
+
+  @media(max-width:768px){
+    .stats-row { grid-template-columns:repeat(2,1fr); }
+    .hero-actions { flex-direction:column; align-items:center; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <!-- NAV -->
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo">
+      <div class="logo-dot"></div>CommuniSense
+    </a>
+    <div class="nav-links">
+      <a href="/tts"           class="nav-link">TTS</a>
+      <a href="/stt"           class="nav-link">STT</a>
+      <a href="/word_recog"    class="nav-link">Words</a>
+      <a href="/letter_recog"  class="nav-link">Letters</a>
+      <a href="/number_recog"  class="nav-link">Numbers</a>
+      <a href="/games"         class="nav-link">Games</a>
+      <a href="/image_gen"     class="nav-link">Image AI</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert"  class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal"  class="nav-link">Journal</a>
+      <a href="/lip_sync"      class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <span id="welcomeUser" style="color:var(--text2);font-size:.85rem"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <main>
+    <div class="container">
+
+      <!-- HERO -->
+      <div class="hero-wrap">
+        <div class="tagline-badge animate-fade-up">
+          <div class="dot"></div>
+          Real-Time Multimodal Communication
+        </div>
+        <h1 class="hero-title animate-fade-up" data-delay="1">
+          Breaking Barriers<br>Building Bridges
+        </h1>
+        <p class="hero-sub animate-fade-up" data-delay="2">
+          Advanced AI-powered communication tools designed for the hearing and speech impaired community.
+          Recognize, translate, and communicate — in any language.
+        </p>
+        <div class="hero-actions animate-fade-up" data-delay="3">
+          <a href="/word_recog" class="btn btn-primary btn-lg">Start Recognizing →</a>
+          <a href="/tts" class="btn btn-secondary btn-lg">Text to Speech</a>
+        </div>
+      </div>
+
+      <!-- STATS -->
+      <div class="stats-row animate-fade-up" data-delay="2">
+        <div class="stat"><div class="stat-num">50+</div><div class="stat-label">Languages Supported</div></div>
+        <div class="stat"><div class="stat-num">12</div><div class="stat-label">Unique Features</div></div>
+        <div class="stat"><div class="stat-num">97%</div><div class="stat-label">Sign Recognition Accuracy</div></div>
+        <div class="stat"><div class="stat-num">∞</div><div class="stat-label">Daily Life Problems Solved</div></div>
+      </div>
+
+      <!-- CORE FEATURES -->
+      <section class="features-section">
+        <div class="section-label">Core Communication</div>
+        <div class="feature-grid mb-4">
+          <a href="/tts" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🔊</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>Text to Speech</h3>
+            <p>Convert written text to natural speech in 50+ languages with real-time playback.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/stt" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🎤</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>Speech to Text</h3>
+            <p>Live transcription in 50+ languages with instant translation support.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/word_recog" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🤟</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>Word Recognition</h3>
+            <p>Real-time ASL word recognition via webcam with high-accuracy hand landmark detection.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/letter_recog" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🔤</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>Letter Recognition</h3>
+            <p>Finger-spell recognition for the full ASL alphabet A–Z with voice feedback.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/number_recog" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🔢</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>Number Recognition</h3>
+            <p>ASL digit recognition 0–9 with 97% accuracy and real-time voice output.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/image_gen" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🎨</div>
+              <span class="feature-tag tag-core">Core</span>
+            </div>
+            <h3>AI Image Generator</h3>
+            <p>Generate vivid images from text prompts to aid visual communication.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/games" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🎮</div>
+              <span class="feature-tag tag-game">Games</span>
+            </div>
+            <h3>NeuroGaming Suite</h3>
+            <p>5 cognitive training games — Pattern Matcher, Memory Sequence, Emotion Matcher & more.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+        </div>
+
+        <!-- NEW FEATURES -->
+        <div class="section-label mt-4">New Exclusive Features</div>
+        <div class="feature-grid">
+          <a href="/emotion_translate" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🧠</div>
+              <span class="feature-tag tag-new">New</span>
+            </div>
+            <h3>Emotion Translator</h3>
+            <p>Type or speak text — AI detects your emotion and converts it to visual emoji + voice phrase for non-verbal communication.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/visual_alert" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">🚨</div>
+              <span class="feature-tag tag-new">New</span>
+            </div>
+            <h3>Visual Alert System</h3>
+            <p>Transforms everyday audio alerts (doorbell, alarms, baby cries) into flashing visual + screen vibration cues for deaf users.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/sign_dictionary" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">📖</div>
+              <span class="feature-tag tag-new">New</span>
+            </div>
+            <h3>Sign Dictionary</h3>
+            <p>Searchable visual dictionary of 20+ ASL signs with step-by-step hand shape guides and pronunciation tips.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/mood_journal" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">📔</div>
+              <span class="feature-tag tag-new">New</span>
+            </div>
+            <h3>Mood Journal</h3>
+            <p>Daily mood tracking with emoji-first entries for non-verbal users. Track energy, patterns & share with caregivers.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+          <a href="/lip_sync" class="feature-card" data-animate>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="feature-icon">👄</div>
+              <span class="feature-tag tag-new">New</span>
+            </div>
+            <h3>Lip Sync Reader</h3>
+            <p>AI-powered lip reading assistant — capture a video frame and get predicted words from mouth shape analysis.</p>
+            <span class="feature-arrow">→</span>
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+  // show username
+  fetch('/api/login', {method:'GET'}).catch(()=>{});
+  // Just display from session if available
+  const el = document.getElementById('welcomeUser');
+  // We'll just leave blank; server could inject username via template
+</script>
+</body>
+</html>

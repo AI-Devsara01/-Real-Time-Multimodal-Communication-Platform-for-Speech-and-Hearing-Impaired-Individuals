@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Create Account</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .auth-wrap { position:relative;z-index:1; width:100%; max-width:460px; padding:1rem; }
+  .auth-card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:24px; padding:3rem 2.5rem;
+    box-shadow:0 40px 100px rgba(0,0,0,0.6), var(--shadow-glow);
+  }
+  .auth-logo { display:flex;align-items:center;gap:.8rem; margin-bottom:2.5rem; font-family:var(--font-head); font-size:1.4rem; font-weight:800; }
+  .auth-logo .dot { width:10px;height:10px;border-radius:50%; background:var(--accent); box-shadow:0 0 14px var(--accent); animation:pulse-dot 2s ease-in-out infinite; }
+  .error-msg { background:rgba(255,56,96,.1);border:1px solid rgba(255,56,96,.3); border-radius:10px;padding:.75rem 1rem; color:var(--danger);font-size:.875rem;margin-bottom:1rem; display:none; }
+  .success-msg { background:rgba(0,217,126,.1);border:1px solid rgba(0,217,126,.3); border-radius:10px;padding:.75rem 1rem; color:var(--success);font-size:.875rem;margin-bottom:1rem; display:none; }
+  .orb { position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(60px); }
+  .orb-1 { width:400px;height:400px;top:-100px;right:-100px;background:rgba(79,139,255,.08);animation:float 8s ease-in-out infinite; }
+  .orb-2 { width:300px;height:300px;bottom:-80px;left:-80px;background:rgba(0,229,255,.06);animation:float 10s ease-in-out infinite reverse; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+  .strength-bar { height:4px;border-radius:999px;background:var(--surface2);margin-top:.5rem;overflow:hidden; }
+  .strength-fill { height:100%;border-radius:999px;width:0;transition:width .3s,background .3s; }
+  .pw-hint { font-size:.75rem;color:var(--text3);margin-top:.3rem; }
+  .auth-foot { text-align:center;margin-top:1.5rem;color:var(--text2);font-size:.875rem; }
+  .auth-foot a { color:var(--accent);text-decoration:none;font-weight:600; }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="auth-wrap animate-fade-up">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="dot"></div>
+      CommuniSense
+    </div>
+
+    <h2 style="font-size:1.8rem;margin-bottom:.5rem">Create account</h2>
+    <p style="color:var(--text2);margin-bottom:2rem;font-size:.95rem">Join the communication revolution</p>
+
+    <div class="error-msg" id="errMsg"></div>
+    <div class="success-msg" id="sucMsg"></div>
+
+    <div class="input-group">
+      <label class="input-label">Full Name / Username</label>
+      <input class="input-field" id="username" type="text" placeholder="Choose a username" autocomplete="username">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Email</label>
+      <input class="input-field" id="email" type="email" placeholder="you@example.com" autocomplete="email">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Password</label>
+      <input class="input-field" id="password" type="password" placeholder="Min 6 characters" autocomplete="new-password" oninput="checkStrength(this.value)">
+      <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+      <p class="pw-hint" id="pwHint">Enter a password</p>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label">Confirm Password</label>
+      <input class="input-field" id="confirm" type="password" placeholder="Repeat password" autocomplete="new-password">
+    </div>
+
+    <button class="btn btn-primary w-full btn-lg mt-2" onclick="doSignup()" id="signupBtn">
+      Create Account
+    </button>
+
+    <div class="auth-foot" style="margin-top:1.5rem">
+      Already have an account? <a href="/login">Sign in</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function checkStrength(pw) {
+  const fill  = document.getElementById('strengthFill');
+  const hint  = document.getElementById('pwHint');
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const pcts  = [0, 20, 40, 60, 80, 100];
+  const colors = ['', '#ff3860', '#ff6b35', '#ffb700', '#00d97e', '#00d97e'];
+  const labels = ['', 'Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'];
+  fill.style.width     = pcts[score] + '%';
+  fill.style.background = colors[score];
+  hint.textContent     = labels[score] || '';
+}
+
+async function doSignup() {
+  const btn = document.getElementById('signupBtn');
+  const err = document.getElementById('errMsg');
+  const suc = document.getElementById('sucMsg');
+  const username = document.getElementById('username').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const confirm  = document.getElementById('confirm').value;
+
+  err.style.display = 'none';
+  suc.style.display = 'none';
+
+  if (!username || !email || !password || !confirm) {
+    err.textContent = 'All fields are required.';
+    err.style.display = 'block'; return;
+  }
+  if (password !== confirm) {
+    err.textContent = 'Passwords do not match.';
+    err.style.display = 'block'; return;
+  }
+  if (password.length < 6) {
+    err.textContent = 'Password must be at least 6 characters.';
+    err.style.display = 'block'; return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Creating account…';
+
+  try {
+    const res  = await fetch('/api/signup', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, email, password})
+    });
+    const data = await res.json();
+    if (data.success) {
+      suc.textContent = `Account created! Redirecting…`;
+      suc.style.display = 'block';
+      setTimeout(() => location.href = '/dashboard', 1200);
+    } else {
+      err.textContent = data.error || 'Signup failed.';
+      err.style.display = 'block';
+    }
+  } catch(e) {
+    err.textContent = 'Network error.';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Create Account';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSignup();
+});
+</script>
+</body>
+</html>

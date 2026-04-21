@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Lip Sync Reader</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  .lip-layout { display:grid; grid-template-columns:1fr 1fr; gap:2rem; padding:9rem 0 5rem; align-items:start; }
+  .cam-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    overflow:hidden; aspect-ratio:4/3; position:relative; display:flex; align-items:center; justify-content:center;
+  }
+  .cam-box video, .cam-box canvas { width:100%;height:100%;object-fit:cover; }
+  .cam-overlay {
+    position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(to bottom, transparent 60%, rgba(3,4,9,.8));
+  }
+  /* Mouth region highlight */
+  .mouth-box {
+    position:absolute; border:2px solid var(--accent2); border-radius:8px;
+    box-shadow:0 0 20px rgba(0,229,255,.3);
+    width:60%; left:20%; height:20%; bottom:20%;
+    pointer-events:none; animation:glow-pulse 2s ease-in-out infinite;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .mouth-label { color:var(--accent2); font-size:.7rem; font-weight:600; letter-spacing:.06em; padding:.2rem .5rem; background:rgba(0,229,255,.1); border-radius:999px; }
+  
+  .result-box {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:2.5rem; text-align:center; min-height:200px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem;
+  }
+  .predicted-word {
+    font-family:var(--font-head); font-size:4rem; font-weight:800;
+    background:linear-gradient(135deg,var(--text),var(--accent2));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .confidence-ring {
+    width:80px; height:80px; position:relative; margin:0 auto;
+  }
+  .conf-svg { transform:rotate(-90deg); }
+  .conf-bg { fill:none; stroke:var(--surface2); stroke-width:8; }
+  .conf-arc { fill:none; stroke:var(--accent); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1); }
+  .conf-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:.9rem; font-weight:700; color:var(--accent); }
+  
+  .alt-words { display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center; }
+  .alt-word { padding:.3rem .8rem; border-radius:999px; background:var(--surface2); border:1px solid var(--border2); font-size:.8rem; cursor:pointer; transition:all .2s; }
+  .alt-word:hover { border-color:var(--accent); color:var(--accent); }
+
+  .sentence-bar {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1.5rem;
+  }
+  .sentence-text {
+    min-height:60px; background:var(--surface2); border-radius:10px; padding:1rem 1.25rem;
+    font-size:1.2rem; font-weight:600; color:var(--text); word-break:break-word; line-height:1.6;
+  }
+  .status-dot { width:10px; height:10px; border-radius:50%; background:var(--text3); animation:none; }
+  .status-dot.active { background:var(--success); animation:glow-pulse 1.5s ease-in-out infinite; }
+
+  @media(max-width:900px){ .lip-layout{grid-template-columns:1fr; padding-top:7rem;} }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a><a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a><a href="/games" class="nav-link">Games</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link active">LipSync</a>
+    </div>
+    <div class="nav-actions"><button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button></div>
+  </nav>
+
+  <div class="container">
+    <div class="lip-layout">
+
+      <!-- LEFT: CAMERA -->
+      <div style="display:flex;flex-direction:column;gap:1.5rem">
+        <div>
+          <div class="badge badge-cyan mb-2 animate-fade-up">👄 AI LIP READER</div>
+          <h1 class="hero-title animate-fade-up" data-delay="1" style="font-size:2.5rem;margin-bottom:.75rem">Lip Sync<br>Reader</h1>
+          <p class="animate-fade-up" data-delay="2" style="font-size:.9rem">AI reads lip movements from your camera and predicts spoken words in real-time.</p>
+        </div>
+
+        <div class="cam-box" id="camBox">
+          <video id="videoEl" autoplay muted playsinline style="display:none"></video>
+          <canvas id="snapCanvas" style="display:none"></canvas>
+          <div id="camPlaceholder" style="text-align:center;color:var(--text3)">
+            <div style="font-size:4rem">👄</div>
+            <p style="margin-top:1rem;font-size:.9rem">Camera not started</p>
+          </div>
+          <div class="cam-overlay"></div>
+          <div class="mouth-box" id="mouthBox" style="display:none">
+            <span class="mouth-label">👄 MOUTH REGION</span>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button class="btn btn-primary flex-1" id="startBtn" onclick="startCamera()">▶ Start Camera</button>
+          <button class="btn btn-secondary flex-1" id="readBtn" onclick="readLips()" disabled>👄 Read Lips</button>
+          <button class="btn btn-ghost" id="stopBtn" onclick="stopCamera()" disabled>■ Stop</button>
+        </div>
+
+        <div class="flex items-center gap-2" style="font-size:.85rem;color:var(--text2)">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">Camera offline</span>
+        </div>
+
+        <!-- Instructions -->
+        <div class="card">
+          <h3 class="mb-2">📋 How to Use</h3>
+          <ol style="color:var(--text2);font-size:.875rem;line-height:2;padding-left:1.25rem">
+            <li>Click <strong style="color:var(--text)">Start Camera</strong> and allow access</li>
+            <li>Position your face so your mouth is visible</li>
+            <li>Form a word with your lips clearly</li>
+            <li>Click <strong style="color:var(--text)">Read Lips</strong> to capture & analyze</li>
+            <li>Enable <strong style="color:var(--text)">Auto-Read</strong> for continuous detection</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- RIGHT: RESULTS -->
+      <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+        <div class="result-box" id="resultBox">
+          <div style="font-size:3rem">👄</div>
+          <p style="color:var(--text3)">Start camera and click Read Lips</p>
+        </div>
+
+        <!-- Sentence builder -->
+        <div class="sentence-bar">
+          <div class="flex items-center justify-between mb-2">
+            <h3>📝 Lip-Read Sentence</h3>
+            <div class="flex gap-1">
+              <button class="btn btn-ghost btn-sm" onclick="speakSentence()">🔊</button>
+              <button class="btn btn-ghost btn-sm" onclick="clearSentence()">🗑️</button>
+            </div>
+          </div>
+          <div class="sentence-text" id="sentenceText">Your lip-read words will appear here…</div>
+          <div class="flex gap-1 mt-2">
+            <button class="btn btn-secondary btn-sm" onclick="addSpace()">␣ Space</button>
+            <button class="btn btn-secondary btn-sm" onclick="backspace()">⌫</button>
+          </div>
+        </div>
+
+        <!-- Auto-read toggle -->
+        <div class="card">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3>Auto-Read Mode</h3>
+              <p style="font-size:.8rem;margin-top:.25rem">Continuously reads lips every 2 seconds</p>
+            </div>
+            <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer">
+              <input type="checkbox" id="autoRead" onchange="toggleAuto(this.checked)" style="width:22px;height:22px;accent-color:var(--accent)">
+              <span style="font-size:.9rem;font-weight:600">Enable</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Detection log -->
+        <div class="card">
+          <h3 class="mb-2">Recent Detections</h3>
+          <div id="detectionLog" style="display:flex;flex-direction:column;gap:.4rem;max-height:200px;overflow-y:auto">
+            <div style="color:var(--text3);font-size:.875rem;text-align:center;padding:.75rem">No detections yet</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+let stream = null;
+let autoInterval = null;
+let sentence = '';
+const detections = [];
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}});
+    const vid = document.getElementById('videoEl');
+    vid.srcObject = stream;
+    vid.style.display = '';
+    document.getElementById('camPlaceholder').style.display = 'none';
+    document.getElementById('mouthBox').style.display = '';
+    document.getElementById('statusDot').classList.add('active');
+    document.getElementById('statusText').textContent = 'Camera active';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('readBtn').disabled  = false;
+    document.getElementById('stopBtn').disabled  = false;
+    showToast('Camera started!', 'success');
+  } catch(e) {
+    showToast('Camera access denied. Please allow camera permission.', 'error');
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('videoEl').style.display = 'none';
+  document.getElementById('camPlaceholder').style.display = '';
+  document.getElementById('mouthBox').style.display = 'none';
+  document.getElementById('statusDot').classList.remove('active');
+  document.getElementById('statusText').textContent = 'Camera offline';
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('readBtn').disabled  = true;
+  document.getElementById('stopBtn').disabled  = true;
+  document.getElementById('autoRead').checked  = false;
+  clearInterval(autoInterval);
+}
+
+async function readLips() {
+  if (!stream) { showToast('Start camera first!', 'error'); return; }
+  const vid    = document.getElementById('videoEl');
+  const canvas = document.getElementById('snapCanvas');
+  canvas.width  = vid.videoWidth  || 320;
+  canvas.height = vid.videoHeight || 240;
+  canvas.getContext('2d').drawImage(vid, 0, 0);
+  const b64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+  try {
+    const data = await apiFetch('/api/lip_sync', {method:'POST', body:JSON.stringify({image:b64})});
+    displayResult(data);
+    sentence += data.predicted_word;
+    updateSentence();
+    addDetectionLog(data);
+  } catch(e) {}
+}
+
+function displayResult(data) {
+  const box = document.getElementById('resultBox');
+  const pct = data.confidence;
+  const circ = 2 * Math.PI * 34;
+  const offset = circ - (pct/100) * circ;
+  box.innerHTML = `
+    <div class="confidence-ring">
+      <svg class="conf-svg" width="80" height="80" viewBox="0 0 80 80">
+        <circle class="conf-bg" cx="40" cy="40" r="34"/>
+        <circle class="conf-arc" cx="40" cy="40" r="34"
+          stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+          stroke="${pct>70?'var(--success)':pct>50?'var(--warning)':'var(--danger)'}"/>
+      </svg>
+      <div class="conf-val">${pct}%</div>
+    </div>
+    <div class="predicted-word">${data.predicted_word}</div>
+    <div style="font-size:.85rem;color:var(--text2)">Mouth shape: ${data.shape}</div>
+    <div>
+      <p style="font-size:.75rem;color:var(--text3);margin-bottom:.5rem">Alternatives:</p>
+      <div class="alt-words">
+        ${data.alternatives.map(w=>`<span class="alt-word" onclick="useWord('${w}')">${w}</span>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function useWord(w) {
+  if (sentence.endsWith(w.charAt(0))) {
+    sentence = sentence.slice(0,-1);
+  }
+  sentence += w;
+  updateSentence();
+}
+
+function addDetectionLog(data) {
+  detections.unshift({word:data.predicted_word, conf:data.confidence, time:new Date().toLocaleTimeString()});
+  const log = document.getElementById('detectionLog');
+  log.innerHTML = detections.slice(0,8).map(d => `
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem .75rem;background:var(--surface2);border-radius:8px;font-size:.825rem">
+      <span style="font-weight:700;color:var(--accent);min-width:80px">${d.word}</span>
+      <span style="color:${d.conf>70?'var(--success)':d.conf>50?'var(--warning)':'var(--danger)'}">${d.conf}%</span>
+      <span style="color:var(--text3);margin-left:auto">${d.time}</span>
+    </div>
+  `).join('');
+}
+
+function updateSentence() {
+  document.getElementById('sentenceText').textContent = sentence || 'Your lip-read words will appear here…';
+}
+
+function addSpace()    { sentence += ' '; updateSentence(); }
+function backspace()   { sentence = sentence.slice(0,-1); updateSentence(); }
+function clearSentence(){ sentence = ''; updateSentence(); }
+
+async function speakSentence() {
+  if (!sentence.trim()) return;
+  try {
+    const data = await apiFetch('/api/tts', {method:'POST', body:JSON.stringify({text:sentence.trim(), lang:'en'})});
+    if (data.audio) playAudio(data.audio);
+  } catch(e) {}
+}
+
+function toggleAuto(on) {
+  if (on) {
+    autoInterval = setInterval(readLips, 2000);
+    showToast('Auto-read enabled', 'info');
+  } else {
+    clearInterval(autoInterval);
+    showToast('Auto-read disabled', 'info');
+  }
+}
+</script>
+</body>
+</html>

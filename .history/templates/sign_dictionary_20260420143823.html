@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Sign Dictionary</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  .dict-hero { padding:9rem 0 2rem; text-align:center; }
+  .search-wrap {
+    max-width:600px; margin:0 auto 3rem;
+    position:relative;
+  }
+  .search-wrap input {
+    width:100%; padding:1rem 1.25rem 1rem 3.25rem;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; font-size:1rem; color:var(--text);
+    font-family:var(--font); outline:none; transition:all .2s;
+  }
+  .search-wrap input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,139,255,.12); }
+  .search-icon { position:absolute; left:1.1rem; top:50%; transform:translateY(-50%); color:var(--text3); font-size:1.1rem; }
+
+  .sign-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1.25rem; padding-bottom:4rem; }
+
+  .sign-card {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:var(--radius-lg); padding:1.75rem;
+    transition:all .3s; cursor:pointer;
+  }
+  .sign-card:hover {
+    border-color:rgba(79,139,255,.4); transform:translateY(-4px);
+    box-shadow:var(--shadow), 0 0 30px rgba(79,139,255,.1);
+  }
+
+  .sign-hand { font-size:4rem; text-align:center; margin-bottom:1rem; line-height:1; }
+  .sign-word { font-family:var(--font-head); font-size:1.4rem; font-weight:700; margin-bottom:.5rem; }
+  .sign-desc { font-size:.875rem; color:var(--accent2); margin-bottom:.75rem; font-weight:500; }
+  .sign-tip  { font-size:.8rem; color:var(--text2); background:var(--surface2); padding:.6rem .9rem; border-radius:8px; border-left:2px solid var(--accent); }
+
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(3,4,9,.85); backdrop-filter:blur(12px);
+    z-index:9990; display:flex; align-items:center; justify-content:center;
+    padding:1.5rem; opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .modal-overlay.open { opacity:1; pointer-events:all; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:24px; padding:3rem; max-width:500px; width:100%;
+    box-shadow:var(--shadow); text-align:center;
+    transform:scale(.95); transition:transform .25s;
+  }
+  .modal-overlay.open .modal { transform:scale(1); }
+  .modal-hand { font-size:8rem; margin-bottom:1.5rem; animation:float 3s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a><a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a><a href="/games" class="nav-link">Games</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link active">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions"><button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button></div>
+  </nav>
+
+  <!-- MODAL -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" id="modalContent">
+      <div class="modal-hand" id="mHand"></div>
+      <h2 id="mWord" style="font-size:2rem;margin-bottom:.5rem"></h2>
+      <p id="mDesc" style="color:var(--accent2);font-weight:600;margin-bottom:1rem"></p>
+      <div id="mTip" style="background:var(--surface2);padding:1rem;border-radius:12px;border-left:3px solid var(--accent);text-align:left;margin-bottom:2rem"></div>
+      <div style="display:flex;gap:.75rem;justify-content:center">
+        <button class="btn btn-primary" onclick="speakWord()">🔊 Hear it</button>
+        <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="dict-hero">
+      <div class="badge badge-accent mb-2 animate-fade-up">📖 ASL DICTIONARY</div>
+      <h1 class="hero-title animate-fade-up" data-delay="1">Sign Language<br>Dictionary</h1>
+      <p class="hero-sub animate-fade-up" data-delay="2">Search 20+ ASL signs with hand shape guides and step-by-step instructions.</p>
+      <div class="search-wrap animate-fade-up" data-delay="3">
+        <span class="search-icon">🔍</span>
+        <input id="searchInput" type="text" placeholder="Search a word… (hello, thanks, help…)" oninput="searchSigns(this.value)">
+      </div>
+    </div>
+
+    <div id="countLabel" style="color:var(--text3);font-size:.85rem;margin-bottom:1rem"></div>
+    <div class="sign-grid" id="signGrid"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+let allSigns = {};
+let currentWord = '';
+
+async function loadSigns(query = '') {
+  try {
+    const url = query ? `/api/sign_dictionary?q=${encodeURIComponent(query)}` : '/api/sign_dictionary';
+    const data = await apiFetch(url, {method:'GET'});
+    allSigns = data.results;
+    renderGrid(allSigns, data.total);
+  } catch(e) {}
+}
+
+function renderGrid(signs, total) {
+  document.getElementById('countLabel').textContent = `Showing ${total} sign${total !== 1 ? 's' : ''}`;
+  const grid = document.getElementById('signGrid');
+  if (Object.keys(signs).length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text3)">No signs found. Try another word.</div>';
+    return;
+  }
+  grid.innerHTML = Object.entries(signs).map(([word, info]) => `
+    <div class="sign-card" onclick="openModal('${word}')">
+      <div class="sign-hand">${info.hand}</div>
+      <div class="sign-word">${word.charAt(0).toUpperCase() + word.slice(1)}</div>
+      <div class="sign-desc">${info.gif_desc}</div>
+      <div class="sign-tip">💡 ${info.tip}</div>
+    </div>
+  `).join('');
+}
+
+function openModal(word) {
+  const info = allSigns[word];
+  if (!info) return;
+  currentWord = word;
+  document.getElementById('mHand').textContent = info.hand;
+  document.getElementById('mWord').textContent  = word.charAt(0).toUpperCase() + word.slice(1);
+  document.getElementById('mDesc').textContent  = info.gif_desc;
+  document.getElementById('mTip').textContent   = '💡 ' + info.tip;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+}
+
+async function speakWord() {
+  try {
+    const data = await apiFetch('/api/tts', {method:'POST', body:JSON.stringify({text:currentWord, lang:'en'})});
+    if (data.audio) playAudio(data.audio);
+  } catch(e) {}
+}
+
+let searchTimer;
+function searchSigns(q) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadSigns(q), 250);
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+loadSigns();
+</script>
+</body>
+</html>

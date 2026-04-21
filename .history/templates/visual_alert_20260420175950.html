@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alert System — Never Miss Important Sounds</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+/* FULL SCREEN ALERT OVERLAY */
+.alert-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.alert-fullscreen.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.alert-critical { background: #ff0000; }
+.alert-high { background: #ff6600; }
+.alert-medium { background: #ffcc00; }
+.alert-low { background: #3399ff; }
+
+.alert-icon-huge {
+  font-size: 200px;
+  animation: alertPulse 0.8s infinite;
+}
+
+.alert-message-huge {
+  font-size: 60px;
+  font-weight: 800;
+  color: white;
+  text-shadow: 0 4px 30px rgba(0,0,0,0.5);
+  margin: 30px 0;
+}
+
+.alert-dismiss-btn {
+  padding: 20px 50px;
+  background: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 30px;
+}
+
+@keyframes alertPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.alert-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.alert-buttons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.alert-trigger-btn {
+  background: var(--surface);
+  border: 3px solid var(--border);
+  border-radius: 20px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.alert-trigger-btn:hover {
+  transform: scale(1.05);
+  border-color: var(--accent);
+}
+
+.alert-btn-icon {
+  font-size: 50px;
+  margin-bottom: 15px;
+}
+
+.alert-btn-name {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.alert-btn-desc {
+  font-size: 13px;
+  color: var(--text2);
+}
+</style>
+</head>
+<body>
+<!-- FULL SCREEN ALERT -->
+<div class="alert-fullscreen" id="alertOverlay" onclick="dismissAlert()">
+  <div class="alert-icon-huge" id="alertIcon">🔔</div>
+  <div class="alert-message-huge" id="alertMessage">ALERT!</div>
+  <div style="color: white; font-size: 24px;" id="alertTimestamp"></div>
+  <button class="alert-dismiss-btn" onclick="event.stopPropagation(); dismissAlert()">
+    TAP TO DISMISS
+  </button>
+</div>
+
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link active">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="alert-container">
+    <h1 style="font-size: 36px; margin-bottom: 10px;">Visual Alert System</h1>
+    <p style="color: var(--text2); margin-bottom: 30px;">Get full-screen alerts for important sounds — Doorbell, alarms, baby crying</p>
+    
+    <div style="background: rgba(255,0,0,0.1); padding: 20px; border-radius: 16px; border-left: 4px solid red; margin-bottom: 30px;">
+      <strong>🔔 How it works:</strong> When an alert triggers, your screen will flash with a bright color and vibrate (on mobile). Tap anywhere to dismiss.
+    </div>
+    
+    <div class="alert-buttons-grid" id="alertGrid"></div>
+    
+    <div style="margin-top: 40px; padding: 20px; background: var(--surface); border-radius: 16px;">
+      <h3>Test Different Alert Types:</h3>
+      <p style="color: var(--text2); margin: 10px 0;">Click any button below to see how each alert appears</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const ALERTS = [
+  {icon: '🔔', name: 'Doorbell', desc: 'Someone at door', priority: 'medium', message: 'DOORBELL! Someone is at the door'},
+  {icon: '🚨', name: 'Fire Alarm', desc: 'EMERGENCY!', priority: 'critical', message: 'FIRE ALARM! EVACUATE IMMEDIATELY!'},
+  {icon: '👶', name: 'Baby Crying', desc: 'Baby needs you', priority: 'high', message: 'BABY IS CRYING! Needs attention'},
+  {icon: '📱', name: 'Phone Call', desc: 'Incoming call', priority: 'low', message: 'PHONE IS RINGING'},
+  {icon: '🔥', name: 'Smoke Alert', desc: 'Smoke detected', priority: 'critical', message: 'SMOKE DETECTED! DANGER!'},
+  {icon: '🚪', name: 'Door Knock', desc: 'Someone knocking', priority: 'medium', message: 'KNOCKING AT THE DOOR'}
+];
+
+// Build alert buttons
+const grid = document.getElementById('alertGrid');
+ALERTS.forEach(alert => {
+  const btn = document.createElement('div');
+  btn.className = 'alert-trigger-btn';
+  btn.innerHTML = `
+    <div class="alert-btn-icon">${alert.icon}</div>
+    <div class="alert-btn-name">${alert.name}</div>
+    <div class="alert-btn-desc">${alert.desc}</div>
+  `;
+  btn.onclick = () => triggerAlert(alert);
+  grid.appendChild(btn);
+});
+
+function triggerAlert(alert) {
+  const overlay = document.getElementById('alertOverlay');
+  const icon = document.getElementById('alertIcon');
+  const message = document.getElementById('alertMessage');
+  const timestamp = document.getElementById('alertTimestamp');
+  
+  // Set content
+  icon.textContent = alert.icon;
+  message.textContent = alert.message;
+  timestamp.textContent = new Date().toLocaleTimeString();
+  
+  // Set color class
+  overlay.className = `alert-fullscreen active alert-${alert.priority}`;
+  
+  // Vibrate if supported
+  if (navigator.vibrate) {
+    const patterns = {
+      critical: [1000, 500, 1000, 500, 1000],
+      high: [500, 300, 500],
+      medium: [300, 200, 300],
+      low: [200]
+    };
+    navigator.vibrate(patterns[alert.priority] || [300]);
+  }
+  
+  // Auto-dismiss low priority after 5 seconds
+  if (alert.priority === 'low') {
+    setTimeout(dismissAlert, 5000);
+  }
+  
+  // Screen shake for critical
+  if (alert.priority === 'critical') {
+    document.body.style.animation = 'shake 0.5s';
+    setTimeout(() => document.body.style.animation = '', 500);
+  }
+}
+
+function dismissAlert() {
+  document.getElementById('alertOverlay').classList.remove('active');
+  if (navigator.vibrate) navigator.vibrate(0);
+}
+
+function logout() {
+  fetch('/api/logout', {method: 'POST'})
+    .then(() => window.location.href = '/login');
+}
+
+// Add shake animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+    20%, 40%, 60%, 80% { transform: translateX(10px); }
+  }
+`;
+document.head.appendChild(style);
+
+// Keyboard dismiss
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') dismissAlert();
+});
+
+// Demo alert on page load
+setTimeout(() => {
+  // Don't auto-trigger, just show ready
+  console.log('Alert system ready');
+}, 500);
+</script>
+</body>
+</html>

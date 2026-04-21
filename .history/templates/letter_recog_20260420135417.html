@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Letter Recognition — CommBridge</title>
+<link rel="stylesheet" href="static/base.css">
+<style>
+.main-layout { padding: 100px 40px 60px; max-width: 1280px; margin: 0 auto; }
+.detection-layout { display: grid; grid-template-columns: 1fr 420px; gap: 24px; }
+.cam-box { background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 4/3; position: relative; border: 1px solid var(--border); }
+video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.big-letter {
+  font-family: var(--font-display); font-size: 120px; font-weight: 800;
+  line-height: 1; text-align: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: breathe 1s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+.alphabet-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+.alpha-key {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 4px;
+  text-align: center; font-family: var(--font-display);
+  font-size: 15px; font-weight: 700; color: var(--text);
+  cursor: pointer; transition: all 0.15s;
+}
+.alpha-key:hover { background: rgba(99,102,241,0.15); border-color: var(--border-glow); transform: scale(1.05); }
+.alpha-key.hit { background: var(--accent); border-color: var(--accent); color: #fff; animation: keyHit 0.3s ease; }
+@keyframes keyHit { 0%{transform:scale(1.2)} 100%{transform:scale(1)} }
+.word-out {
+  font-family: var(--font-display); font-size: 36px; font-weight: 800;
+  letter-spacing: 0.08em; min-height: 56px;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.letter-chip {
+  display: inline-block; padding: 2px 8px;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: 6px; margin: 2px;
+  animation: fadeUp 0.2s ease;
+}
+.hand-guide { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.hand-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; transition: 0.2s; }
+.hand-item:hover { border-color: var(--border-glow); }
+.hand-emoji { font-size: 24px; display: block; margin-bottom: 4px; }
+.hand-label { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+@media(max-width:900px){.detection-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="cursor"></div><div class="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="dot"></div>CommBridge</a>
+  <div class="nav-links">
+    <a href="word_recog.html" class="nav-link">Words</a>
+    <a href="letter_recog.html" class="nav-link active">Letters</a>
+    <a href="number_recog.html" class="nav-link">Numbers</a>
+    <a href="tts.html" class="nav-link">TTS</a>
+    <a href="stt.html" class="nav-link">STT</a>
+    <a href="games.html" class="nav-link">Games</a>
+    <a href="index.html" class="nav-link">Home</a>
+  </div>
+</nav>
+
+<div class="main-layout">
+  <div style="margin-bottom:40px" class="animate-up">
+    <span class="section-label">ASL Recognition</span>
+    <h1 style="font-family:var(--font-display);font-size:clamp(32px,4vw,52px);font-weight:800;letter-spacing:-0.03em">Letter Recognition</h1>
+    <p style="color:var(--text-muted);margin-top:8px">Finger-spell letters A–Z using ASL. Watch them build into words.</p>
+  </div>
+  
+  <div class="detection-layout">
+    <div>
+      <div class="cam-box">
+        <video id="video" autoplay muted playsinline></video>
+        <div id="no-cam" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surface);gap:16px;">
+          <div style="font-size:48px">📷</div>
+          <p style="color:var(--text-muted);font-size:14px">Camera not started</p>
+          <button class="btn btn-primary" onclick="startCam()">Enable Camera</button>
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-primary" id="start-btn" onclick="startCam()">▶ Start</button>
+        <button class="btn btn-secondary" id="stop-btn" onclick="stopCam()" disabled>■ Stop</button>
+        <button class="btn btn-ghost" onclick="deleteChar()">⌫ Delete</button>
+        <button class="btn btn-ghost" onclick="addSpace()">⎵ Space</button>
+        <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
+        <button class="btn btn-success" onclick="speakWord()">🔊 Speak</button>
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+        <div class="status-dot" id="sdot" style="background:var(--text-dim)"></div>
+        <span id="stext" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">Camera offline</span>
+      </div>
+      
+      <!-- Alphabet keyboard visual -->
+      <div class="panel" style="margin-top:24px">
+        <div class="panel-header">
+          <span class="panel-title">Alphabet — tap to add</span>
+          <span class="badge badge-accent">A–Z</span>
+        </div>
+        <div class="panel-body">
+          <div class="alphabet-grid" id="alpha-grid"></div>
+        </div>
+      </div>
+      
+      <!-- Hand guide -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header"><span class="panel-title">Quick ASL Reference</span></div>
+        <div class="panel-body">
+          <div class="hand-guide" id="hand-guide"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right panel -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- Current letter -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Detected Letter</span><span id="conf-badge" class="badge badge-accent">0%</span></div>
+        <div class="panel-body" style="text-align:center;padding:32px">
+          <div class="big-letter" id="detected-letter">—</div>
+          <div class="conf-bar" style="margin-top:16px"><div class="conf-fill" id="conf-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      
+      <!-- Word being built -->
+      <div class="panel" style="flex:1">
+        <div class="panel-header">
+          <span class="panel-title">Building...</span>
+          <button class="btn btn-sm btn-ghost" onclick="copyText(currentWord)">Copy</button>
+        </div>
+        <div class="panel-body">
+          <div class="word-out" id="word-out"></div>
+        </div>
+      </div>
+      
+      <!-- Full sentence -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Full Sentence</span></div>
+        <div class="panel-body">
+          <div style="font-size:18px;min-height:60px;word-break:break-word;line-height:1.6" id="sentence-out"></div>
+        </div>
+      </div>
+      
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="letter-count">0</div>
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-top:4px">Letters</div>
+        </div>
+        <div class="card" style="text-align:center;padding:16px">
+          <div style="font-family:var(--font-display);font-size:28px;font-weight:800;color:var(--success)" id="word-count">0</div>
+          <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-top:4px">Words</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="static/base.js"></script>
+<script>
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+const ASL_EMOJIS = {'A':'✊','B':'✋','C':'🤏','D':'☝️','E':'🤜','F':'👌','G':'👉','H':'🤞','I':'🤙','J':'🤙','K':'✌️','L':'👆','M':'✊','N':'✊','O':'👌','P':'👇','Q':'👇','R':'🤞','S':'✊','T':'✊','U':'✌️','V':'✌️','W':'🖖','X':'☝️','Y':'🤙','Z':'☝️'};
+
+// Build alphabet grid
+const grid = document.getElementById('alpha-grid');
+ALPHABET.forEach(l => {
+  const el = document.createElement('div');
+  el.className = 'alpha-key';
+  el.textContent = l;
+  el.id = 'key-' + l;
+  el.onclick = () => addLetter(l);
+  grid.appendChild(el);
+});
+
+// Build hand guide (first 12)
+const hg = document.getElementById('hand-guide');
+ALPHABET.slice(0,12).forEach(l => {
+  hg.innerHTML += `<div class="hand-item"><span class="hand-emoji">${ASL_EMOJIS[l]||'✋'}</span><span class="hand-label">${l}</span></div>`;
+});
+
+let stream = null, currentWord = '', sentence = '', letterCount = 0, wordCount = 0;
+
+async function startCam() {
+  stream = await startWebcam(document.getElementById('video'));
+  if (!stream) return;
+  document.getElementById('no-cam').style.display = 'none';
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('sdot').style.cssText = 'background:var(--success);box-shadow:0 0 8px var(--success);width:8px;height:8px;border-radius:50%;animation:pulse 2s infinite';
+  document.getElementById('stext').textContent = 'Detecting letters...';
+  startLoop();
+}
+
+function stopCam() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  document.getElementById('no-cam').style.display = 'flex';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('stext').textContent = 'Camera offline';
+}
+
+let lastLetter = '', lastTime = 0;
+function startLoop() {
+  const canvas = document.createElement('canvas');
+  setInterval(async () => {
+    if (!stream) return;
+    const v = document.getElementById('video');
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+    canvas.getContext('2d').drawImage(v, 0, 0);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
+    const fd = new FormData(); fd.append('frame', blob, 'f.jpg');
+    try {
+      const res = await fetch('/api/letter-recognition', { method: 'POST', body: fd });
+      const d = await res.json();
+      handleLetter(d.letter, d.confidence);
+    } catch { simulateLetter(); }
+  }, 900);
+}
+
+const DEMO_LETTERS = 'HELLO WORLD'.split('');
+let demoLIdx = 0;
+function simulateLetter() {
+  const l = DEMO_LETTERS[demoLIdx % DEMO_LETTERS.length];
+  demoLIdx++;
+  if (l === ' ') return;
+  handleLetter(l, 0.75 + Math.random() * 0.2);
+}
+
+function handleLetter(letter, conf) {
+  if (!letter || letter === ' ') return;
+  document.getElementById('detected-letter').textContent = letter;
+  document.getElementById('conf-badge').textContent = `${Math.round(conf*100)}%`;
+  document.getElementById('conf-fill').style.width = `${conf*100}%`;
+  
+  // Highlight key
+  document.querySelectorAll('.alpha-key').forEach(k => k.classList.remove('hit'));
+  const key = document.getElementById('key-' + letter);
+  if (key) key.classList.add('hit');
+  
+  if (letter !== lastLetter && Date.now() - lastTime > 800) {
+    addLetter(letter);
+    lastLetter = letter; lastTime = Date.now();
+  }
+}
+
+function addLetter(l) {
+  currentWord += l;
+  letterCount++;
+  document.getElementById('letter-count').textContent = letterCount;
+  document.getElementById('detected-letter').textContent = l;
+  
+  const wOut = document.getElementById('word-out');
+  wOut.innerHTML = currentWord.split('').map(c => `<span class="letter-chip">${c}</span>`).join('');
+}
+
+function addSpace() {
+  if (currentWord) {
+    sentence += (sentence ? ' ' : '') + currentWord;
+    wordCount++;
+    document.getElementById('word-count').textContent = wordCount;
+    document.getElementById('sentence-out').textContent = sentence;
+  }
+  currentWord = '';
+  document.getElementById('word-out').innerHTML = '';
+  lastLetter = '';
+}
+
+function deleteChar() {
+  currentWord = currentWord.slice(0, -1);
+  letterCount = Math.max(0, letterCount - 1);
+  document.getElementById('letter-count').textContent = letterCount;
+  document.getElementById('word-out').innerHTML = currentWord.split('').map(c => `<span class="letter-chip">${c}</span>`).join('');
+}
+
+function clearAll() { currentWord = ''; sentence = ''; letterCount = 0; wordCount = 0; document.getElementById('word-out').innerHTML = ''; document.getElementById('sentence-out').textContent = ''; document.getElementById('letter-count').textContent = 0; document.getElementById('word-count').textContent = 0; lastLetter = ''; }
+
+function speakWord() {
+  const text = (sentence + ' ' + currentWord).trim();
+  if (!text) { Toast.info('Nothing to speak'); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  speechSynthesis.speak(u);
+}
+</script>
+</body>
+</html>

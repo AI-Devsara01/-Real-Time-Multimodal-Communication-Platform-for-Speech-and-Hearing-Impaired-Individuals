@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Speech to Text — CommuniSense</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --bg-dark: #0a0a0f; --bg-card: rgba(15,15,25,0.6); --glass-border: rgba(255,255,255,0.08); --accent: #6366f1; --accent2: #8b5cf6; --success: #10b981; --danger: #ef4444; --text-primary: #fff; --text-secondary: rgba(255,255,255,0.7); --text-muted: rgba(255,255,255,0.4); }
+    body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-primary); overflow-x: hidden; }
+    #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+    .glass-nav { position: fixed; top: 20px; left: 20px; right: 20px; z-index: 100; background: rgba(10,10,15,0.7); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 700; color: white; text-decoration: none; }
+    .dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-link { color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+    .nav-link:hover, .nav-link.active { color: white; }
+    .main-layout { padding: 100px 40px 60px; max-width: 1300px; margin: 0 auto; }
+    .section-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); background: rgba(99,102,241,0.1); padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 16px; }
+    .stt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .panel { background: var(--bg-card); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 20px; overflow: hidden; }
+    .panel-header { padding: 16px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+    .panel-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .panel-body { padding: 20px; }
+    .mic-btn { width: 100px; height: 100px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; cursor: pointer; font-size: 40px; margin: 0 auto; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+    .mic-btn.recording { background: linear-gradient(135deg, var(--danger), #dc2626); animation: pulseRing 1.5s ease-in-out infinite; }
+    @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); } 70% { box-shadow: 0 0 0 20px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+    .waveform { display: flex; align-items: center; gap: 4px; height: 50px; justify-content: center; margin: 20px 0; }
+    .wave-bar { width: 4px; background: linear-gradient(to top, var(--accent), var(--accent2)); border-radius: 2px; transition: height 0.1s ease; }
+    .transcript-out { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 14px; padding: 20px; min-height: 150px; font-size: 18px; line-height: 1.6; }
+    .interim { color: var(--text-muted); font-style: italic; }
+    .btn { padding: 10px 20px; border-radius: 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; }
+    .btn-secondary { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: var(--text-secondary); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 6px 12px; font-size: 11px; }
+    .badge { font-size: 10px; padding: 4px 10px; border-radius: 20px; background: rgba(99,102,241,0.2); color: var(--accent); }
+    .search-input { width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 10px; color: white; margin-bottom: 12px; font-size: 13px; }
+    .lang-select { max-height: 250px; overflow-y: auto; }
+    .lang-option { padding: 10px; cursor: pointer; transition: all 0.2s; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+    .lang-option:hover { background: rgba(99,102,241,0.1); }
+    .lang-option.selected { background: rgba(99,102,241,0.2); border-left: 2px solid var(--accent); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-active { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+    .status-recording { background: var(--danger); animation: pulse 1s infinite; }
+    .status-loading { background: var(--accent); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+    .history-item { padding: 10px; background: rgba(255,255,255,0.03); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+    .history-item:hover { background: rgba(99,102,241,0.1); }
+    .translation-result { margin-top: 16px; padding: 16px; background: rgba(99,102,241,0.1); border-radius: 12px; border: 1px solid rgba(99,102,241,0.2); display: none; }
+    .translation-result.show { display: block; }
+    @media (max-width: 900px) { .stt-grid { grid-template-columns: 1fr; } .main-layout { padding: 100px 20px 40px; } .nav-links { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<nav class="glass-nav">
+    <a href="/dashboard" class="nav-logo"><div class="dot"></div>CommuniSense</a>
+    <div class="nav-links">
+        <a href="/word_recog" class="nav-link">Words</a>
+        <a href="/letter_recog" class="nav-link">Letters</a>
+        <a href="/number_recog" class="nav-link">Numbers</a>
+        <a href="/tts" class="nav-link">TTS</a>
+        <a href="/stt" class="nav-link active">STT</a>
+        <a href="/games" class="nav-link">Games</a>
+        <a href="/dashboard" class="nav-link">Home</a>
+    </div>
+</nav>
+<div class="main-layout">
+    <div style="margin-bottom:40px">
+        <span class="section-label">🎙️ Speech to Text</span>
+        <h1 style="font-size: clamp(32px,4vw,52px); font-weight:800;">Speech to Text</h1>
+        <p style="color:var(--text-muted); margin-top:8px;">Speak naturally → Text appears instantly → Translate to 40+ languages</p>
+    </div>
+    <div class="stt-grid">
+        <div>
+            <div class="panel" style="text-align:center"><div class="panel-body"><button class="mic-btn" id="micBtn" onclick="toggleRecording()">🎤</button><p style="margin-top:16px; font-size:13px; color:var(--text-muted);" id="micLabel">Tap to start recording</p><div class="waveform" id="waveform"></div><div style="display:flex; gap:16px; justify-content:center; margin-top:8px;"><div style="text-align:center"><div style="font-size:24px; font-weight:800; color:var(--accent);" id="wordCount">0</div><div style="font-size:10px; color:var(--text-muted);">Words</div></div><div style="text-align:center"><div style="font-size:24px; font-weight:800; color:var(--accent2);" id="duration">0s</div><div style="font-size:10px; color:var(--text-muted);">Duration</div></div></div></div></div>
+            <div class="panel" style="margin-top:16px"><div class="panel-header"><span class="panel-title">Transcript</span><div style="display:flex; gap:8px;"><button class="btn btn-sm btn-secondary" onclick="clearTranscript()">Clear</button><button class="btn btn-sm btn-secondary" onclick="copyTranscript()">Copy</button></div></div><div class="panel-body"><div class="transcript-out" id="transcriptOut"><span style="color:var(--text-muted);">Your speech will appear here...</span></div><div style="display:flex; gap:8px; margin-top:12px;"><button class="btn btn-sm btn-secondary" onclick="sendToTTS()">🔊 Send to TTS</button><button class="btn btn-sm btn-secondary" onclick="downloadTranscript()">⬇ Download</button></div></div></div>
+            <div class="panel" style="margin-top:16px"><div class="panel-header"><span class="panel-title">🌍 Translation</span><span class="badge">40+ Languages</span></div><div class="panel-body"><div id="translationResult" class="translation-result"><div style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Translated text will appear here</div><div id="translatedText" style="font-size:14px;"></div></div><button id="speakTranslationBtn" class="btn btn-success btn-full" style="margin-top:10px; display:none;" onclick="speakTranslation()">🔊 Speak Translation</button></div></div>
+        </div>
+        <div>
+            <div class="panel"><div class="panel-header"><span class="panel-title">🎤 Input Language</span></div><div class="panel-body"><input type="text" id="inputLangSearch" class="search-input" placeholder="Search language..."><div id="inputLangList" class="lang-select"></div></div></div>
+            <div class="panel" style="margin-top:16px"><div class="panel-header"><span class="panel-title">🌍 Translate to Language</span></div><div class="panel-body"><input type="text" id="targetLangSearch" class="search-input" placeholder="Search language..."><div id="targetLangList" class="lang-select"></div></div></div>
+            <div class="panel" style="margin-top:16px"><div class="panel-header"><span class="panel-title">⚡ Options</span></div><div class="panel-body"><label style="display:flex; align-items:center; gap:10px; margin-bottom:12px; cursor:pointer;"><input type="checkbox" id="continuousMode" checked style="accent-color:var(--accent); width:16px; height:16px;"><span style="font-size:13px;">Continuous recording</span></label><label style="display:flex; align-items:center; gap:10px; cursor:pointer;"><input type="checkbox" id="autoTranslate" checked style="accent-color:var(--accent); width:16px; height:16px;"><span style="font-size:13px;">Auto-translate</span></label></div></div>
+            <div class="panel" style="margin-top:16px"><div class="panel-header"><span class="panel-title">📋 History</span><button class="btn btn-sm btn-secondary" onclick="clearHistory()">Clear</button></div><div class="panel-body" id="historyList" style="max-height:200px; overflow-y:auto;"><p style="color:var(--text-muted); font-size:13px;">No history yet.</p></div></div>
+            <div style="display:flex; align-items:center; gap:8px; padding:12px; background:rgba(255,255,255,0.03); border-radius:12px; margin-top:16px;"><div class="status-dot" id="statusDot"></div><span id="statusText" style="font-size:12px;">Ready</span></div>
+        </div>
+    </div>
+</div>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.128.0/build/three.module.js"}}</script>
+<script type="module">
+    import * as THREE from 'three';
+    const canvas = document.getElementById('bg-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 15);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 1500;
+    const posArray = new Float32Array(particlesCount * 3);
+    for (let i = 0; i < particlesCount; i++) { posArray[i*3] = (Math.random() - 0.5) * 40; posArray[i*3+1] = (Math.random() - 0.5) * 30; posArray[i*3+2] = (Math.random() - 0.5) * 30 - 15; }
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particlesMaterial = new THREE.PointsMaterial({ size: 0.06, color: 0x6366f1, transparent: true, opacity: 0.4 });
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+    let time = 0;
+    function animate() { requestAnimationFrame(animate); time += 0.005; particlesMesh.rotation.y = time * 0.1; particlesMesh.rotation.x = Math.sin(time * 0.2) * 0.1; camera.position.x = Math.sin(time * 0.2) * 0.2; camera.position.y = Math.cos(time * 0.15) * 0.1; camera.lookAt(0, 0, -5); renderer.render(scene, camera); }
+    animate();
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+</script>
+<script>
+    const RECOGNITION_LANGUAGES = [
+        { name: "English (US)", code: "en-US", flag: "🇺🇸" }, { name: "English (UK)", code: "en-GB", flag: "🇬🇧" },
+        { name: "Hindi", code: "hi-IN", flag: "🇮🇳" }, { name: "Kannada", code: "kn-IN", flag: "🇮🇳" }, { name: "Tamil", code: "ta-IN", flag: "🇮🇳" },
+        { name: "Telugu", code: "te-IN", flag: "🇮🇳" }, { name: "Malayalam", code: "ml-IN", flag: "🇮🇳" }, { name: "Marathi", code: "mr-IN", flag: "🇮🇳" },
+        { name: "Gujarati", code: "gu-IN", flag: "🇮🇳" }, { name: "Punjabi", code: "pa-IN", flag: "🇮🇳" }, { name: "Bengali", code: "bn-IN", flag: "🇮🇳" },
+        { name: "Urdu", code: "ur-PK", flag: "🇵🇰" }, { name: "Spanish", code: "es-ES", flag: "🇪🇸" }, { name: "French", code: "fr-FR", flag: "🇫🇷" },
+        { name: "German", code: "de-DE", flag: "🇩🇪" }, { name: "Italian", code: "it-IT", flag: "🇮🇹" }, { name: "Portuguese", code: "pt-PT", flag: "🇵🇹" },
+        { name: "Russian", code: "ru-RU", flag: "🇷🇺" }, { name: "Japanese", code: "ja-JP", flag: "🇯🇵" }, { name: "Korean", code: "ko-KR", flag: "🇰🇷" },
+        { name: "Chinese", code: "zh-CN", flag: "🇨🇳" }, { name: "Arabic", code: "ar-SA", flag: "🇸🇦" }, { name: "Turkish", code: "tr-TR", flag: "🇹🇷" }
+    ];
+    const TARGET_LANGUAGES = [
+        { name: "English", code: "en", flag: "🇺🇸" }, { name: "Hindi", code: "hi", flag: "🇮🇳" }, { name: "Kannada", code: "kn", flag: "🇮🇳" },
+        { name: "Tamil", code: "ta", flag: "🇮🇳" }, { name: "Telugu", code: "te", flag: "🇮🇳" }, { name: "Malayalam", code: "ml", flag: "🇮🇳" },
+        { name: "Marathi", code: "mr", flag: "🇮🇳" }, { name: "Gujarati", code: "gu", flag: "🇮🇳" }, { name: "Punjabi", code: "pa", flag: "🇮🇳" },
+        { name: "Bengali", code: "bn", flag: "🇮🇳" }, { name: "Spanish", code: "es", flag: "🇪🇸" }, { name: "French", code: "fr", flag: "🇫🇷" },
+        { name: "German", code: "de", flag: "🇩🇪" }, { name: "Italian", code: "it", flag: "🇮🇹" }, { name: "Portuguese", code: "pt", flag: "🇵🇹" },
+        { name: "Russian", code: "ru", flag: "🇷🇺" }, { name: "Japanese", code: "ja", flag: "🇯🇵" }, { name: "Korean", code: "ko", flag: "🇰🇷" },
+        { name: "Chinese", code: "zh", flag: "🇨🇳" }, { name: "Arabic", code: "ar", flag: "🇸🇦" }, { name: "Turkish", code: "tr", flag: "🇹🇷" }
+    ];
+    let selectedInputLang = RECOGNITION_LANGUAGES[0];
+    let selectedTargetLang = TARGET_LANGUAGES[1];
+    let recognition = null, isRecording = false, fullTranscript = '', duration = 0, durationInterval = null, history = [], translatedText = '', translationTimeout = null;
+    function buildInputLangList(filter = '') { const container = document.getElementById('inputLangList'); const filtered = RECOGNITION_LANGUAGES.filter(l => l.name.toLowerCase().includes(filter.toLowerCase()) || l.code.toLowerCase().includes(filter)); container.innerHTML = filtered.map(lang => `<div class="lang-option ${selectedInputLang.code === lang.code ? 'selected' : ''}" onclick="selectInputLang('${lang.code}')"><span>${lang.flag}</span><span>${lang.name}</span></div>`).join(''); }
+    function buildTargetLangList(filter = '') { const container = document.getElementById('targetLangList'); const filtered = TARGET_LANGUAGES.filter(l => l.name.toLowerCase().includes(filter.toLowerCase()) || l.code.toLowerCase().includes(filter)); container.innerHTML = filtered.map(lang => `<div class="lang-option ${selectedTargetLang.code === lang.code ? 'selected' : ''}" onclick="selectTargetLang('${lang.code}')"><span>${lang.flag}</span><span>${lang.name}</span></div>`).join(''); }
+    window.selectInputLang = function(code) { selectedInputLang = RECOGNITION_LANGUAGES.find(l => l.code === code); buildInputLangList(); if (recognition) recognition.lang = selectedInputLang.code; };
+    window.selectTargetLang = function(code) { selectedTargetLang = TARGET_LANGUAGES.find(l => l.code === code); buildTargetLangList(); if (fullTranscript.trim() && document.getElementById('autoTranslate').checked) translateTextInstant(); };
+    document.getElementById('inputLangSearch').addEventListener('input', (e) => buildInputLangList(e.target.value));
+    document.getElementById('targetLangSearch').addEventListener('input', (e) => buildTargetLangList(e.target.value));
+    function buildWaveform() { const wf = document.getElementById('waveform'); wf.innerHTML = ''; for (let i = 0; i < 30; i++) { const bar = document.createElement('div'); bar.className = 'wave-bar'; bar.style.height = '4px'; wf.appendChild(bar); } }
+    let waveInterval = null;
+    function animateWaveform(active) { if (waveInterval) clearInterval(waveInterval); const bars = document.querySelectorAll('.wave-bar'); if (active) { waveInterval = setInterval(() => { bars.forEach(bar => { const h = 4 + Math.random() * 40; bar.style.height = h + 'px'; }); }, 100); } else { bars.forEach(bar => bar.style.height = '4px'); } }
+    function setupRecognition() { const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SpeechRecognition) { showToast('Browser does not support speech recognition. Use Chrome.'); return null; } const r = new SpeechRecognition(); r.lang = selectedInputLang.code; r.interimResults = true; r.continuous = document.getElementById('continuousMode').checked; r.onresult = (event) => { let interim = '', final = ''; for (let i = event.resultIndex; i < event.results.length; i++) { if (event.results[i].isFinal) final += event.results[i][0].transcript + ' '; else interim += event.results[i][0].transcript; } if (final) { fullTranscript += final; updateWordCount(); if (document.getElementById('autoTranslate').checked) translateTextInstant(); } updateTranscriptDisplay(fullTranscript, interim); }; r.onend = () => { if (isRecording && document.getElementById('continuousMode').checked) r.start(); else stopRecording(); }; r.onerror = (e) => { if (e.error !== 'no-speech') showToast(`Error: ${e.error}`); }; return r; }
+    function startRecording() { recognition = setupRecognition(); if (!recognition) return; recognition.start(); isRecording = true; document.getElementById('micBtn').classList.add('recording'); document.getElementById('micBtn').textContent = '⏹'; document.getElementById('micLabel').textContent = 'Recording... Tap to stop'; animateWaveform(true); setStatus('Recording...', 'recording'); duration = 0; durationInterval = setInterval(() => { duration++; document.getElementById('duration').textContent = duration + 's'; }, 1000); }
+    function stopRecording() { if (recognition) { try { recognition.stop(); } catch(e) {} recognition = null; } isRecording = false; document.getElementById('micBtn').classList.remove('recording'); document.getElementById('micBtn').textContent = '🎤'; document.getElementById('micLabel').textContent = 'Tap to start recording'; animateWaveform(false); if (durationInterval) clearInterval(durationInterval); setStatus('Ready', 'active'); if (fullTranscript.trim()) addToHistory(fullTranscript); }
+    function toggleRecording() { if (isRecording) stopRecording(); else startRecording(); }
+    function updateTranscriptDisplay(final, interim) { const container = document.getElementById('transcriptOut'); container.innerHTML = `<span>${escapeHtml(final)}</span><span class="interim">${escapeHtml(interim)}</span>`; if (!final && !interim) container.innerHTML = '<span style="color:var(--text-muted);">Your speech will appear here...</span>'; }
+    function updateWordCount() { const words = fullTranscript.trim().split(/\s+/).filter(w => w.length > 0); document.getElementById('wordCount').textContent = words.length; }
+    function clearTranscript() { fullTranscript = ''; updateTranscriptDisplay('', ''); updateWordCount(); document.getElementById('duration').textContent = '0s'; duration = 0; document.getElementById('translationResult').classList.remove('show'); document.getElementById('speakTranslationBtn').style.display = 'none'; translatedText = ''; }
+    function copyTranscript() { if (fullTranscript) { navigator.clipboard.writeText(fullTranscript); showToast('Copied!'); } }
+    async function translateTextInstant() { const text = fullTranscript.trim(); if (!text) return; if (translationTimeout) clearTimeout(translationTimeout); translationTimeout = setTimeout(async () => { setStatus('Translating...', 'loading'); try { const response = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, src: selectedInputLang.code.split('-')[0], dest: selectedTargetLang.code }) }); const data = await response.json(); if (data.translated) { translatedText = data.translated; document.getElementById('translatedText').innerHTML = translatedText; document.getElementById('translationResult').classList.add('show'); document.getElementById('speakTranslationBtn').style.display = 'block'; } setStatus('Ready', 'active'); } catch (err) { console.error('Translation error:', err); setStatus('Ready', 'active'); } }, 500); }
+    function speakTranslation() { if (!translatedText) return; const utterance = new SpeechSynthesisUtterance(translatedText); utterance.lang = selectedTargetLang.code; window.speechSynthesis.cancel(); window.speechSynthesis.speak(utterance); }
+    function sendToTTS() { if (fullTranscript) { localStorage.setItem('tts_prefill', fullTranscript); window.location.href = '/tts'; } }
+    function downloadTranscript() { const blob = new Blob([fullTranscript], { type: 'text/plain' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `transcript_${new Date().toISOString().slice(0,19)}.txt`; a.click(); URL.revokeObjectURL(url); }
+    function addToHistory(text) { history.unshift({ text: text.slice(0,80) + (text.length > 80 ? '…' : ''), time: new Date().toLocaleTimeString() }); if (history.length > 15) history.pop(); updateHistoryDisplay(); }
+    function updateHistoryDisplay() { const container = document.getElementById('historyList'); if (history.length === 0) { container.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">No history yet.</p>'; return; } container.innerHTML = history.map(h => `<div class="history-item" onclick="loadFromHistory('${escapeHtml(h.text).replace(/'/g, "\\'")}')"><div style="font-size:13px;">${escapeHtml(h.text)}</div><div style="font-size:10px; color:var(--text-muted); margin-top:4px;">${h.time}</div></div>`).join(''); }
+    window.loadFromHistory = function(text) { fullTranscript = text; updateTranscriptDisplay(fullTranscript, ''); updateWordCount(); translateTextInstant(); };
+    function clearHistory() { history = []; updateHistoryDisplay(); }
+    function setStatus(msg, type) { document.getElementById('statusText').textContent = msg; const dot = document.getElementById('statusDot'); dot.className = 'status-dot'; if (type === 'active') dot.classList.add('status-active'); else if (type === 'recording') dot.classList.add('status-recording'); else if (type === 'loading') dot.classList.add('status-loading'); }
+    function showToast(msg) { const toast = document.createElement('div'); toast.textContent = msg; toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 20px;border-radius:10px;z-index:1000;font-size:14px;'; document.body.appendChild(toast); setTimeout(() => toast.remove(), 2000); }
+    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+    buildWaveform(); buildInputLangList(); buildTargetLangList(); setStatus('Ready', 'active');
+</script>
+</body>
+</html>

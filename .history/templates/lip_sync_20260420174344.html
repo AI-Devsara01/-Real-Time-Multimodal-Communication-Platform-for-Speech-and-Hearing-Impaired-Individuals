@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipSense — AI Lip Reader</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.lip-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 100px 20px 60px;
+}
+
+.lip-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 30px;
+}
+
+.camera-section {
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+  border-radius: 24px;
+  padding: 30px;
+  border: 1px solid var(--border);
+}
+
+.camera-box {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  background: #000;
+}
+
+.camera-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mouth-overlay {
+  position: absolute;
+  border: 3px solid #00e5ff;
+  border-radius: 12px;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
+  animation: glow 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 30px rgba(0, 229, 255, 0.5); }
+  50% { box-shadow: 0 0 50px rgba(0, 229, 255, 0.8); }
+}
+
+.result-card {
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+  border-radius: 24px;
+  padding: 40px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.predicted-word {
+  font-size: 72px;
+  font-weight: 800;
+  margin: 30px 0;
+  background: linear-gradient(135deg, #00e5ff, #007bff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: fadeIn 0.5s;
+}
+
+.confidence-ring {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+}
+
+.sentence-builder {
+  background: var(--surface2);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.sentence-text {
+  font-size: 24px;
+  min-height: 80px;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  word-break: break-word;
+}
+
+.control-bar {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.control-btn {
+  flex: 1;
+  padding: 15px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+}
+
+.btn-secondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.auto-read-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background: var(--surface2);
+  border-radius: 16px;
+  margin-top: 20px;
+}
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--surface);
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--accent);
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.detection-log {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 20px;
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: var(--surface2);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  border-left: 3px solid var(--accent);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link active">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <div class="lip-container">
+    <div style="text-align: center; margin-bottom: 40px;">
+      <span class="badge badge-cyan">👄 AI LIP READING TECHNOLOGY</span>
+      <h1 style="font-size: 48px; margin: 20px 0 10px;">LipSync Reader</h1>
+      <p style="color: var(--text2); font-size: 18px;">Real-time lip reading for the hearing impaired — See what people are saying</p>
+    </div>
+
+    <div class="lip-grid">
+      <div>
+        <div class="camera-section">
+          <div class="camera-box" id="cameraBox">
+            <video id="videoElement" autoplay playsinline muted></video>
+            <canvas id="canvasElement" style="display: none;"></canvas>
+            <div class="mouth-overlay" id="mouthOverlay" style="display: none;"></div>
+            <div id="cameraPlaceholder" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text3);">
+              <div style="text-align: center;">
+                <div style="font-size: 64px;">📷</div>
+                <p>Camera off</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="control-bar">
+            <button class="control-btn btn-primary" id="startBtn" onclick="startCamera()">
+              ▶ Start Camera
+            </button>
+            <button class="control-btn btn-secondary" id="captureBtn" onclick="captureAndRead()" disabled>
+              📸 Read Lips
+            </button>
+            <button class="control-btn btn-secondary" id="stopBtn" onclick="stopCamera()" disabled>
+              ⏹ Stop
+            </button>
+          </div>
+          
+          <div class="auto-read-toggle">
+            <div>
+              <strong>🤖 Auto-Read Mode</strong>
+              <p style="font-size: 13px; color: var(--text2); margin-top: 5px;">Continuously reads lips every 2 seconds</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="autoReadToggle" onchange="toggleAutoRead(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div>
+        <div class="result-card">
+          <h3>Predicted Word</h3>
+          <div class="confidence-ring">
+            <canvas id="confidenceCanvas" width="120" height="120"></canvas>
+          </div>
+          <div class="predicted-word" id="predictedWord">—</div>
+          <div id="alternativesList" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 20px 0;"></div>
+          
+          <div class="sentence-builder">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+              <strong>📝 Constructed Sentence</strong>
+              <div>
+                <button class="btn-ghost" onclick="speakSentence()" style="padding: 5px 10px;">🔊</button>
+                <button class="btn-ghost" onclick="clearSentence()" style="padding: 5px 10px;">🗑️</button>
+              </div>
+            </div>
+            <div class="sentence-text" id="sentenceText">Your sentence will appear here...</div>
+            <div style="display: flex; gap: 5px; margin-top: 10px;">
+              <button class="btn-secondary" onclick="addToSentence(' ')" style="flex: 1;">␣ Space</button>
+              <button class="btn-secondary" onclick="backspace()" style="flex: 1;">⌫ Backspace</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="camera-section" style="margin-top: 20px; padding: 20px;">
+          <h3>📋 Detection History</h3>
+          <div class="detection-log" id="detectionLog">
+            <div style="color: var(--text3); text-align: center; padding: 20px;">No detections yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+let stream = null;
+let autoInterval = null;
+let sentence = '';
+let detections = [];
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { width: 640, height: 480, facingMode: 'user' } 
+    });
+    
+    const video = document.getElementById('videoElement');
+    video.srcObject = stream;
+    
+    document.getElementById('cameraPlaceholder').style.display = 'none';
+    document.getElementById('mouthOverlay').style.display = 'block';
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('captureBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = false;
+    
+    showToast('Camera started! Position your face clearly', 'success');
+  } catch(e) {
+    showToast('Camera access denied', 'error');
+  }
+}
+
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  
+  document.getElementById('cameraPlaceholder').style.display = 'flex';
+  document.getElementById('mouthOverlay').style.display = 'none';
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('captureBtn').disabled = true;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('autoReadToggle').checked = false;
+  clearInterval(autoInterval);
+}
+
+async function captureAndRead() {
+  if (!stream) return;
+  
+  const video = document.getElementById('videoElement');
+  const canvas = document.getElementById('canvasElement');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  
+  const imageData = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+  
+  try {
+    const data = await apiFetch('/api/lip_sync', {
+      method: 'POST',
+      body: JSON.stringify({ image: imageData })
+    });
+    
+    displayResult(data);
+    addToSentence(data.predicted_word);
+    addToHistory(data);
+    
+  } catch(e) {
+    showToast('Detection failed', 'error');
+  }
+}
+
+function displayResult(data) {
+  document.getElementById('predictedWord').textContent = data.predicted_word;
+  
+  // Draw confidence ring
+  const canvas = document.getElementById('confidenceCanvas');
+  const ctx = canvas.getContext('2d');
+  const confidence = data.confidence;
+  
+  ctx.clearRect(0, 0, 120, 120);
+  
+  // Background circle
+  ctx.beginPath();
+  ctx.arc(60, 60, 50, 0, 2 * Math.PI);
+  ctx.strokeStyle = 'var(--surface2)';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  
+  // Confidence arc
+  ctx.beginPath();
+  ctx.arc(60, 60, 50, -Math.PI/2, (-Math.PI/2) + (2 * Math.PI * confidence/100));
+  const gradient = ctx.createLinearGradient(0, 0, 120, 120);
+  gradient.addColorStop(0, '#00e5ff');
+  gradient.addColorStop(1, '#007bff');
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  
+  // Center text
+  ctx.fillStyle = 'var(--text)';
+  ctx.font = 'bold 20px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${confidence}%`, 60, 60);
+  
+  // Alternatives
+  const altDiv = document.getElementById('alternativesList');
+  altDiv.innerHTML = data.alternatives.map(alt => 
+    `<button class="btn-ghost" onclick="useWord('${alt}')" style="padding: 5px 15px;">${alt}</button>`
+  ).join('');
+}
+
+function useWord(word) {
+  addToSentence(word);
+}
+
+function addToSentence(word) {
+  if (sentence && !sentence.endsWith(' ') && word !== ' ') {
+    sentence += ' ';
+  }
+  sentence += word;
+  updateSentenceDisplay();
+}
+
+function updateSentenceDisplay() {
+  document.getElementById('sentenceText').textContent = sentence || 'Your sentence will appear here...';
+}
+
+function backspace() {
+  sentence = sentence.slice(0, -1);
+  updateSentenceDisplay();
+}
+
+function clearSentence() {
+  sentence = '';
+  updateSentenceDisplay();
+}
+
+async function speakSentence() {
+  if (!sentence) return;
+  try {
+    const data = await apiFetch('/api/tts', {
+      method: 'POST',
+      body: JSON.stringify({ text: sentence, lang: 'en' })
+    });
+    if (data.audio) playAudio(data.audio);
+  } catch(e) {}
+}
+
+function addToHistory(data) {
+  detections.unshift({
+    word: data.predicted_word,
+    confidence: data.confidence,
+    time: new Date().toLocaleTimeString()
+  });
+  
+  if (detections.length > 10) detections.pop();
+  
+  const logDiv = document.getElementById('detectionLog');
+  logDiv.innerHTML = detections.map(d => `
+    <div class="log-entry">
+      <span style="font-weight: 700; color: var(--accent); min-width: 80px;">${d.word}</span>
+      <span style="color: ${d.confidence > 70 ? 'var(--success)' : d.confidence > 50 ? 'var(--warning)' : 'var(--danger)'};">${d.confidence}%</span>
+      <span style="margin-left: auto; color: var(--text3); font-size: 12px;">${d.time}</span>
+    </div>
+  `).join('');
+}
+
+function toggleAutoRead(enabled) {
+  if (enabled) {
+    autoInterval = setInterval(captureAndRead, 2000);
+    showToast('Auto-read enabled', 'info');
+  } else {
+    clearInterval(autoInterval);
+    showToast('Auto-read disabled', 'info');
+  }
+}
+</script>
+</body>
+</html>

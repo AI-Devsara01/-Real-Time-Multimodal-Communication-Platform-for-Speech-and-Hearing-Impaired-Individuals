@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speech to Text — CommBridge</title>
+<link rel="stylesheet" href="static/base.css">
+<style>
+.main-layout { padding: 100px 40px 60px; max-width: 1100px; margin: 0 auto; }
+.stt-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
+.mic-btn {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; font-size: 40px;
+  margin: 0 auto; transition: all 0.3s;
+  box-shadow: 0 0 0 0 rgba(99,102,241,0.4);
+}
+.mic-btn:hover { transform: scale(1.05); }
+.mic-btn.recording {
+  animation: pulse-ring 1.5s ease-in-out infinite;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+  70% { box-shadow: 0 0 0 30px rgba(239,68,68,0); }
+  100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+}
+.transcript-out {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px; min-height: 200px;
+  font-size: 20px; line-height: 1.7; word-break: break-word;
+  position: relative; overflow: hidden;
+}
+.transcript-out .interim { color: var(--text-muted); font-style: italic; }
+.waveform { display: flex; align-items: center; gap: 3px; height: 48px; justify-content: center; margin: 20px 0; }
+.wave-bar {
+  width: 4px; border-radius: 2px;
+  background: linear-gradient(to top, var(--accent), var(--accent2));
+  transition: height 0.1s ease;
+}
+.translate-section { margin-top: 20px; padding: 20px; background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.15); border-radius: 12px; }
+.copy-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.history-scroll { max-height: 300px; overflow-y: auto; }
+.hist-item { padding: 12px; background: var(--bg2); border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; border: 1px solid var(--border); }
+.hist-item:hover { border-color: var(--border-glow); }
+.hist-text { font-size: 13px; color: var(--text-muted); }
+.hist-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+@media(max-width:800px){.stt-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="cursor"></div><div class="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="dot"></div>CommBridge</a>
+  <div class="nav-links">
+    <a href="word_recog.html" class="nav-link">Words</a>
+    <a href="letter_recog.html" class="nav-link">Letters</a>
+    <a href="number_recog.html" class="nav-link">Numbers</a>
+    <a href="tts.html" class="nav-link">TTS</a>
+    <a href="stt.html" class="nav-link active">STT</a>
+    <a href="games.html" class="nav-link">Games</a>
+    <a href="image_gen.html" class="nav-link">AI Art</a>
+    <a href="index.html" class="nav-link">Home</a>
+  </div>
+</nav>
+
+<div class="main-layout">
+  <div style="margin-bottom:40px" class="animate-up">
+    <span class="section-label">Voice Input</span>
+    <h1 style="font-family:var(--font-display);font-size:clamp(32px,4vw,52px);font-weight:800;letter-spacing:-0.03em">Speech to Text</h1>
+    <p style="color:var(--text-muted);margin-top:8px">Speak clearly — your words appear as text instantly. Translate to any of 50+ languages.</p>
+  </div>
+  
+  <div class="stt-grid">
+    <div>
+      <!-- Mic area -->
+      <div class="panel" style="text-align:center;padding:40px">
+        <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">🎤</button>
+        <p id="mic-label" style="margin-top:20px;font-family:var(--font-mono);font-size:13px;color:var(--text-muted)">Tap to start recording</p>
+        
+        <div class="waveform" id="waveform">
+          <!-- Bars added by JS -->
+        </div>
+        
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:8px">
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--accent)" id="word-count-stat">0</div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;color:var(--text-dim)">Words</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--accent2)" id="duration-stat">0s</div>
+            <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;color:var(--text-dim)">Duration</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Transcript -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header">
+          <span class="panel-title">Transcript</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-ghost" onclick="clearTranscript()">Clear</button>
+            <button class="btn btn-sm btn-ghost" onclick="copyText(fullTranscript)">Copy</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="transcript-out" id="transcript-out">
+            <span style="color:var(--text-dim);font-size:16px">Your speech will appear here...</span>
+          </div>
+          <div class="copy-actions">
+            <button class="btn btn-sm btn-secondary" onclick="sendToTTS()">→ Send to TTS</button>
+            <button class="btn btn-sm btn-secondary" onclick="downloadTranscript()">⬇ Download</button>
+            <button class="btn btn-sm btn-secondary" onclick="shareTranscript()">Share</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Translation -->
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-header"><span class="panel-title">Translate</span><span class="badge badge-accent">50+ Languages</span></div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div>
+              <label class="form-label">From</label>
+              <select class="form-select" id="from-lang"><option value="en-US">English</option></select>
+            </div>
+            <div>
+              <label class="form-label">To</label>
+              <select class="form-select" id="to-lang"></select>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="translateText()">Translate →</button>
+          <div id="translation-out" style="margin-top:16px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:16px;min-height:60px;display:none"></div>
+          <button id="speak-translation-btn" class="btn btn-success btn-full" style="margin-top:10px;display:none" onclick="speakTranslation()">🔊 Speak Translation</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right panel -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Input Language</span></div>
+        <div class="panel-body">
+          <select class="form-select" id="input-lang" onchange="changeInputLang(this.value)">
+            <option value="en-US">English (US)</option>
+            <option value="hi-IN">Hindi</option>
+            <option value="kn-IN">Kannada</option>
+            <option value="ta-IN">Tamil</option>
+            <option value="te-IN">Telugu</option>
+            <option value="es-ES">Spanish</option>
+            <option value="fr-FR">French</option>
+            <option value="de-DE">German</option>
+            <option value="ja-JP">Japanese</option>
+            <option value="ko-KR">Korean</option>
+            <option value="zh-CN">Chinese</option>
+            <option value="ar-SA">Arabic</option>
+            <option value="ru-RU">Russian</option>
+            <option value="pt-BR">Portuguese</option>
+            <option value="it-IT">Italian</option>
+            <option value="nl-NL">Dutch</option>
+            <option value="pl-PL">Polish</option>
+            <option value="tr-TR">Turkish</option>
+            <option value="vi-VN">Vietnamese</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Options</span></div>
+        <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="continuous" style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:14px">Continuous recording</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="auto-translate" style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:14px">Auto-translate</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="auto-speak" style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:14px">Speak translation</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <input type="checkbox" id="punctuation" checked style="accent-color:var(--accent);width:16px;height:16px">
+            <span style="font-size:14px">Show punctuation</span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="panel" style="flex:1">
+        <div class="panel-header"><span class="panel-title">History</span><button class="btn btn-sm btn-ghost" onclick="clearHistory()">Clear</button></div>
+        <div class="panel-body">
+          <div class="history-scroll" id="stt-history">
+            <p style="color:var(--text-dim);font-size:13px">No recordings yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="static/base.js"></script>
+<script>
+// Build waveform
+const wf = document.getElementById('waveform');
+for (let i = 0; i < 40; i++) {
+  const bar = document.createElement('div');
+  bar.className = 'wave-bar';
+  bar.style.height = '4px';
+  wf.appendChild(bar);
+}
+
+// To lang select
+const toLang = document.getElementById('to-lang');
+const LANGS = ['Hindi:hi','Kannada:kn','Tamil:ta','Telugu:te','Spanish:es','French:fr','German:de','Japanese:ja','Korean:ko','Chinese:zh-cn','Arabic:ar','Russian:ru','Portuguese:pt','Italian:it','Dutch:nl','Polish:pl','Turkish:tr','Vietnamese:vi','Bengali:bn','Gujarati:gu','Marathi:mr','Malayalam:ml','Punjabi:pa','Urdu:ur','Indonesian:id','Malay:ms','Swedish:sv','Danish:da','Norwegian:no','Finnish:fi','Greek:el','Romanian:ro','Ukrainian:uk','Czech:cs','Slovak:sk','Hungarian:hu','Hebrew:he','Swahili:sw','Filipino:fil','Afrikaans:af'];
+LANGS.forEach(l => {
+  const [name, code] = l.split(':');
+  toLang.innerHTML += `<option value="${code}">${name}</option>`;
+});
+
+let recognition = null, recording = false, fullTranscript = '', duration = 0, durationTimer = null;
+let translatedText = '';
+
+function setupRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { Toast.error('Browser does not support speech recognition. Use Chrome.'); return null; }
+  
+  const r = new SpeechRecognition();
+  r.lang = document.getElementById('input-lang').value;
+  r.interimResults = true;
+  r.continuous = document.getElementById('continuous').checked;
+  
+  r.onresult = e => {
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    if (final) {
+      fullTranscript += final;
+      updateWordCount();
+      if (document.getElementById('auto-translate').checked) translateText();
+    }
+    document.getElementById('transcript-out').innerHTML = 
+      `<span>${fullTranscript}</span><span class="interim">${interim}</span>`;
+  };
+  
+  r.onend = () => {
+    if (recording && document.getElementById('continuous').checked) r.start();
+    else stopRecording();
+  };
+  
+  r.onerror = e => { Toast.error(`Recognition error: ${e.error}`); stopRecording(); };
+  return r;
+}
+
+function toggleRecording() {
+  if (recording) stopRecording();
+  else startRecording();
+}
+
+function startRecording() {
+  recognition = setupRecognition();
+  if (!recognition) return;
+  recognition.start();
+  recording = true;
+  document.getElementById('mic-btn').classList.add('recording');
+  document.getElementById('mic-btn').textContent = '⏹';
+  document.getElementById('mic-label').textContent = 'Recording... Tap to stop';
+  animateWave(true);
+  duration = 0;
+  durationTimer = setInterval(() => {
+    duration++;
+    document.getElementById('duration-stat').textContent = duration + 's';
+  }, 1000);
+}
+
+function stopRecording() {
+  if (recognition) { try { recognition.stop(); } catch {} }
+  recording = false;
+  document.getElementById('mic-btn').classList.remove('recording');
+  document.getElementById('mic-btn').textContent = '🎤';
+  document.getElementById('mic-label').textContent = 'Tap to start recording';
+  animateWave(false);
+  clearInterval(durationTimer);
+  addToHistory();
+}
+
+let waveInterval;
+function animateWave(active) {
+  clearInterval(waveInterval);
+  const bars = document.querySelectorAll('.wave-bar');
+  if (active) {
+    waveInterval = setInterval(() => {
+      bars.forEach(b => {
+        const h = active ? (4 + Math.random() * 40) : 4;
+        b.style.height = h + 'px';
+      });
+    }, 100);
+  } else {
+    bars.forEach(b => b.style.height = '4px');
+  }
+}
+
+function changeInputLang(val) {
+  if (recognition) { recognition.lang = val; }
+}
+
+function updateWordCount() {
+  const words = fullTranscript.trim().split(/\s+/).filter(Boolean);
+  document.getElementById('word-count-stat').textContent = words.length;
+}
+
+function clearTranscript() {
+  fullTranscript = '';
+  document.getElementById('transcript-out').innerHTML = '<span style="color:var(--text-dim);font-size:16px">Your speech will appear here...</span>';
+  document.getElementById('word-count-stat').textContent = 0;
+  document.getElementById('duration-stat').textContent = '0s';
+  duration = 0;
+}
+
+async function translateText() {
+  const text = fullTranscript.trim();
+  if (!text) { Toast.info('No transcript to translate'); return; }
+  const from = document.getElementById('from-lang').value.split('-')[0];
+  const to = document.getElementById('to-lang').value;
+  
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ text, from, to })
+    });
+    const d = await res.json();
+    translatedText = d.translation || text;
+  } catch {
+    translatedText = '[Translation unavailable — connect to server]';
+  }
+  
+  const out = document.getElementById('translation-out');
+  out.style.display = 'block';
+  out.textContent = translatedText;
+  document.getElementById('speak-translation-btn').style.display = 'block';
+  
+  if (document.getElementById('auto-speak').checked) speakTranslation();
+}
+
+function speakTranslation() {
+  if (!translatedText) return;
+  const u = new SpeechSynthesisUtterance(translatedText);
+  u.lang = document.getElementById('to-lang').value;
+  speechSynthesis.speak(u);
+}
+
+function sendToTTS() {
+  localStorage.setItem('tts_prefill', fullTranscript);
+  window.location.href = 'tts.html';
+}
+
+function downloadTranscript() {
+  const blob = new Blob([fullTranscript], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'transcript.txt'; a.click();
+}
+
+function shareTranscript() { copyText(fullTranscript); }
+
+let sttHistory = [];
+function addToHistory() {
+  if (!fullTranscript.trim()) return;
+  sttHistory.unshift({ text: fullTranscript.slice(0, 80) + (fullTranscript.length > 80 ? '…' : ''), time: new Date().toLocaleTimeString() });
+  if (sttHistory.length > 20) sttHistory.pop();
+  const el = document.getElementById('stt-history');
+  el.innerHTML = sttHistory.map(h => `
+    <div class="hist-item" onclick="useHistory('${h.text.replace(/'/g,"\\'")}')">
+      <div class="hist-text">${h.text}</div>
+      <div class="hist-meta">${h.time}</div>
+    </div>
+  `).join('');
+}
+
+function useHistory(text) {
+  fullTranscript = text;
+  document.getElementById('transcript-out').textContent = text;
+  updateWordCount();
+}
+
+function clearHistory() {
+  sttHistory = [];
+  document.getElementById('stt-history').innerHTML = '<p style="color:var(--text-dim);font-size:13px">No recordings yet.</p>';
+}
+
+// Check for prefill from TTS
+const prefill = localStorage.getItem('stt_prefill');
+if (prefill) { fullTranscript = prefill; document.getElementById('transcript-out').textContent = prefill; localStorage.removeItem('stt_prefill'); }
+</script>
+</body>
+</html>

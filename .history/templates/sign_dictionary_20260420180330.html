@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Dictionary — Learn Essential ASL Signs</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.sign-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.search-bar {
+  margin: 30px 0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 20px;
+  font-size: 20px;
+  background: var(--surface);
+  border: 3px solid var(--border);
+  border-radius: 50px;
+  color: var(--text);
+}
+
+.sign-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.sign-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sign-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.sign-hand-emoji {
+  font-size: 70px;
+  margin-bottom: 20px;
+}
+
+.sign-word-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.sign-description {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+/* Modal */
+.sign-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.sign-modal.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal-card {
+  background: var(--surface);
+  border-radius: 40px;
+  padding: 50px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+}
+
+.modal-hand-huge {
+  font-size: 150px;
+  margin-bottom: 30px;
+}
+
+.modal-word-huge {
+  font-size: 48px;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.modal-instruction {
+  background: var(--surface2);
+  padding: 20px;
+  border-radius: 16px;
+  margin: 30px 0;
+  font-size: 18px;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link active">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Modal -->
+  <div class="sign-modal" id="signModal" onclick="closeModal()">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-hand-huge" id="modalHand">👋</div>
+      <div class="modal-word-huge" id="modalWord">Hello</div>
+      <div class="modal-instruction" id="modalInstruction">
+        Wave your hand side to side
+      </div>
+      <button class="btn btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+  <div class="sign-container">
+    <h1 style="font-size: 36px; margin-bottom: 10px;">Sign Language Dictionary</h1>
+    <p style="color: var(--text2); margin-bottom: 20px;">Learn essential ASL signs for daily communication</p>
+    
+    <div class="search-bar">
+      <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search for a sign... (hello, thank you, help, eat...)" oninput="filterSigns(this.value)">
+    </div>
+    
+    <div class="sign-grid" id="signGrid"></div>
+  </div>
+</div>
+
+<script>
+// Essential ASL signs for daily communication
+const SIGNS = [
+  {word: 'Hello', hand: '👋', instruction: 'Wave your open hand side to side', tip: 'Palm facing forward, wave gently'},
+  {word: 'Thank You', hand: '🤲', instruction: 'Touch chin with fingertips, then move hand forward', tip: 'Start at chin, move outward'},
+  {word: 'Please', hand: '🖐️', instruction: 'Rub your chest in a circular motion', tip: 'Open palm, circle on chest'},
+  {word: 'Sorry', hand: '✊', instruction: 'Make a fist and rub in circles on chest', tip: 'Circular motion over heart'},
+  {word: 'Yes', hand: '👍', instruction: 'Nod your fist up and down', tip: 'Like nodding your head'},
+  {word: 'No', hand: '👎', instruction: 'Index and middle finger tap thumb', tip: 'Like a mouth saying no'},
+  {word: 'Help', hand: '🆘', instruction: 'One fist with thumb up, lift with other hand', tip: 'Thumbs up on flat palm, lift'},
+  {word: 'Eat', hand: '🍽️', instruction: 'Bring pinched fingers to mouth repeatedly', tip: 'Like bringing food to mouth'},
+  {word: 'Drink', hand: '🥤', instruction: 'Thumb to lips, tilt hand back', tip: 'Like drinking from cup'},
+  {word: 'Bathroom', hand: '🚽', instruction: 'Make T shape with hands, shake slightly', tip: 'Letter T for toilet'},
+  {word: 'Pain', hand: '🤕', instruction: 'Point to where it hurts, make pained expression', tip: 'Indicate location clearly'},
+  {word: 'Love', hand: '❤️', instruction: 'Cross both arms over your chest', tip: 'Hug yourself'},
+  {word: 'Happy', hand: '😊', instruction: 'Pat your chest with flat hands, alternating', tip: 'Upward motion shows joy'},
+  {word: 'Sad', hand: '😢', instruction: 'Draw fingers down from eyes like tears', tip: 'Show tears flowing down'},
+  {word: 'Stop', hand: '✋', instruction: 'Hold up open palm facing forward', tip: 'Like traffic stop signal'},
+  {word: 'Wait', hand: '⏸️', instruction: 'Hold up both palms, fingers up, wiggle fingers', tip: 'Palms facing forward, fingers move'},
+  {word: 'More', hand: '➕', instruction: 'Bring fingertips of both hands together', tip: 'Tap fingertips repeatedly'},
+  {word: 'All Done', hand: '✅', instruction: 'Both palms up, flip them over', tip: 'Show empty hands, finished'}
+];
+
+let filteredSigns = [...SIGNS];
+
+function renderSigns(signs) {
+  const grid = document.getElementById('signGrid');
+  grid.innerHTML = signs.map(sign => `
+    <div class="sign-card" onclick='showSign(${JSON.stringify(sign)})'>
+      <div class="sign-hand-emoji">${sign.hand}</div>
+      <div class="sign-word-title">${sign.word}</div>
+      <div class="sign-description">${sign.instruction}</div>
+    </div>
+  `).join('');
+}
+
+function showSign(sign) {
+  document.getElementById('modalHand').textContent = sign.hand;
+  document.getElementById('modalWord').textContent = sign.word;
+  document.getElementById('modalInstruction').innerHTML = `
+    <strong>How to sign:</strong><br>
+    ${sign.instruction}<br><br>
+    <span style="color: var(--accent);">💡 Tip: ${sign.tip}</span>
+  `;
+  document.getElementById('signModal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('signModal').classList.remove('active');
+}
+
+function filterSigns(query) {
+  const filtered = SIGNS.filter(sign => 
+    sign.word.toLowerCase().includes(query.toLowerCase())
+  );
+  renderSigns(filtered);
+}
+
+function logout() {
+  fetch('/api/logout', {method: 'POST'})
+    .then(() => window.location.href = '/login');
+}
+
+// Initial render
+renderSigns(SIGNS);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === '/' && !e.target.matches('input')) {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+</script>
+</body>
+</html>

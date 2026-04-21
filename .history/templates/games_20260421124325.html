@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Games — CommuniSense | Cognitive Training</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    :root {
+        --bg-dark: #0a0a0f;
+        --bg-card: rgba(15, 15, 25, 0.6);
+        --glass-border: rgba(255, 255, 255, 0.08);
+        --glass-border-light: rgba(255, 255, 255, 0.15);
+        --accent: #6366f1;
+        --accent2: #8b5cf6;
+        --accent3: #06b6d4;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --text-primary: #ffffff;
+        --text-secondary: rgba(255, 255, 255, 0.7);
+        --text-muted: rgba(255, 255, 255, 0.4);
+        --font-display: 'Inter', sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-primary);
+        overflow-x: hidden;
+    }
+
+    #bg-canvas {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+    }
+
+    .glass-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(10, 10, 15, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 12px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: white;
+        text-decoration: none;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        background: var(--accent);
+        border-radius: 50%;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+    }
+
+    .nav-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .nav-link:hover, .nav-link.active {
+        color: white;
+    }
+
+    .main-layout {
+        padding: 100px 40px 60px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        background: rgba(99, 102, 241, 0.1);
+        padding: 4px 12px;
+        border-radius: 20px;
+        display: inline-block;
+        margin-bottom: 16px;
+    }
+
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 24px;
+        margin-top: 32px;
+    }
+
+    .game-card {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .game-card:hover {
+        transform: translateY(-6px);
+        border-color: var(--glass-border-light);
+    }
+
+    .game-banner {
+        height: 140px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 56px;
+        background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2));
+    }
+
+    .game-info {
+        padding: 20px;
+    }
+
+    .game-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .game-desc {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 16px;
+    }
+
+    .game-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .badge {
+        font-size: 10px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(99, 102, 241, 0.2);
+        color: var(--accent);
+    }
+
+    .badge-success {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--success);
+    }
+
+    .badge-warning {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: white;
+    }
+
+    .btn-ghost {
+        background: transparent;
+        border: 1px solid var(--glass-border);
+        color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover {
+        border-color: var(--glass-border-light);
+        color: white;
+    }
+
+    .game-container {
+        display: none;
+    }
+
+    .game-container.active {
+        display: block;
+    }
+
+    .game-play-area {
+        background: var(--bg-card);
+        backdrop-filter: blur(10px);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 40px;
+        text-align: center;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+    }
+
+    .score-board {
+        display: flex;
+        gap: 32px;
+        justify-content: center;
+        margin-bottom: 24px;
+    }
+
+    .score-item {
+        text-align: center;
+    }
+
+    .score-num {
+        font-family: var(--font-display);
+        font-size: 36px;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .score-label {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .pattern-display {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+        font-size: 40px;
+    }
+
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .option-btn {
+        padding: 16px;
+        font-size: 18px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: white;
+    }
+
+    .option-btn:hover {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: var(--glass-border-light);
+    }
+
+    .option-btn.correct {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: var(--success);
+    }
+
+    .option-btn.wrong {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: var(--danger);
+    }
+
+    .emoji-big {
+        font-size: 80px;
+        animation: breathe 1.5s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    .emotion-btns {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .emotion-btn {
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: white;
+    }
+
+    .emotion-btn:hover {
+        border-color: var(--glass-border-light);
+        transform: translateY(-2px);
+    }
+
+    .tap-target {
+        font-size: 80px;
+        cursor: pointer;
+        transition: transform 0.1s;
+    }
+
+    .tap-target:active {
+        transform: scale(0.9);
+    }
+
+    .time-bar {
+        width: 100%;
+        max-width: 400px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .time-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        border-radius: 3px;
+        transition: width 0.1s linear;
+    }
+
+    .mem-symbols {
+        display: flex;
+        gap: 20px;
+        font-size: 48px;
+        margin: 20px 0;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .mem-symbol {
+        cursor: pointer;
+        transition: all 0.15s;
+        padding: 10px;
+        border-radius: 12px;
+        border: 2px solid transparent;
+    }
+
+    .mem-symbol:hover {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: var(--glass-border-light);
+        transform: scale(1.1);
+    }
+
+    .back-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .game-name {
+        font-size: 24px;
+        font-weight: 700;
+    }
+
+    @media (max-width: 900px) {
+        .games-grid {
+            grid-template-columns: 1fr;
+        }
+        .main-layout {
+            padding: 100px 20px 40px;
+        }
+        .nav-links {
+            display: none;
+        }
+        .options-grid {
+            grid-template-columns: 1fr;
+        }
+        .emotion-btns {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav class="glass-nav">
+    <a href="/dashboard" class="nav-logo">
+        <div class="dot"></div>
+        <span>CommuniSense</span>
+    </a>
+    <div class="nav-links">
+        <a href="/word_recog" class="nav-link">Words</a>
+        <a href="/letter_recog" class="nav-link">Letters</a>
+        <a href="/number_recog" class="nav-link">Numbers</a>
+        <a href="/tts" class="nav-link">TTS</a>
+        <a href="/stt" class="nav-link">STT</a>
+        <a href="/games" class="nav-link active">Games</a>
+        <a href="/dashboard" class="nav-link">Home</a>
+    </div>
+</nav>
+
+<div class="main-layout">
+    <!-- Hub - Game Selection -->
+    <div id="hub">
+        <div style="margin-bottom: 40px">
+            <span class="section-label">🎮 Cognitive Training</span>
+            <h1 style="font-size: clamp(32px, 4vw, 52px); font-weight: 800;">Neural Games</h1>
+            <p style="color: var(--text-muted); margin-top: 8px;">5 science-backed cognitive training games. Improve memory, reaction, and emotional intelligence.</p>
+        </div>
+
+        <div class="games-grid">
+            <div class="game-card" onclick="playGame(1)">
+                <div class="game-banner">🎯</div>
+                <div class="game-info">
+                    <div class="game-title">Pattern Matcher</div>
+                    <div class="game-desc">Match visual patterns that get progressively harder. Tests attention and working memory.</div>
+                    <div class="game-meta">
+                        <span class="badge">20 Levels</span>
+                        <span class="badge-success badge">Memory</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-card" onclick="playGame(2)">
+                <div class="game-banner">🧠</div>
+                <div class="game-info">
+                    <div class="game-title">Memory Sequence</div>
+                    <div class="game-desc">Watch a sequence flash, then reproduce it exactly. Classic cognitive training.</div>
+                    <div class="game-meta">
+                        <span class="badge">15 Levels</span>
+                        <span class="badge-warning badge">Sequence</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-card" onclick="playGame(3)">
+                <div class="game-banner">🎭</div>
+                <div class="game-info">
+                    <div class="game-title">Emotion Matcher</div>
+                    <div class="game-desc">Match emojis to emotions. Develops emotional intelligence and facial recognition.</div>
+                    <div class="game-meta">
+                        <span class="badge">Unlimited</span>
+                        <span class="badge">Emotional</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-card" onclick="playGame(4)">
+                <div class="game-banner">⚡</div>
+                <div class="game-info">
+                    <div class="game-title">Speed Tap</div>
+                    <div class="game-desc">React as fast as possible. Tap disappearing targets to build reaction speed.</div>
+                    <div class="game-meta">
+                        <span class="badge">Endless</span>
+                        <span class="badge-warning badge">Reflex</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-card" onclick="playGame(5)">
+                <div class="game-banner">🎨</div>
+                <div class="game-info">
+                    <div class="game-title">Color Matcher</div>
+                    <div class="game-desc">Stroop effect challenge — match the color, not the word. Cognitive flexibility training.</div>
+                    <div class="game-meta">
+                        <span class="badge">15 Levels</span>
+                        <span class="badge-success badge">Focus</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Area -->
+    <div id="game-area" style="display: none;">
+        <div class="back-header">
+            <button class="btn btn-ghost" onclick="goHub()">← Back to Games</button>
+            <span class="game-name" id="gameName"></span>
+        </div>
+
+        <!-- Game 1: Pattern Matcher -->
+        <div id="g1" class="game-container">
+            <div class="score-board">
+                <div class="score-item"><div class="score-num" id="g1-score">0</div><div class="score-label">Score</div></div>
+                <div class="score-item"><div class="score-num" id="g1-level">1</div><div class="score-label">Level</div></div>
+                <div class="score-item"><div class="score-num" id="g1-streak">0</div><div class="score-label">Streak</div></div>
+            </div>
+            <div class="game-play-area">
+                <p style="font-size:12px; color:var(--text-muted);">Match this pattern:</p>
+                <div class="pattern-display" id="g1-pattern"></div>
+                <p style="font-size:14px; color:var(--text-muted);">Choose the matching option:</p>
+                <div class="options-grid" id="g1-options"></div>
+                <div id="g1-msg" style="font-size:16px; min-height:28px;"></div>
+            </div>
+        </div>
+
+        <!-- Game 2: Memory Sequence -->
+        <div id="g2" class="game-container">
+            <div class="score-board">
+                <div class="score-item"><div class="score-num" id="g2-score">0</div><div class="score-label">Score</div></div>
+                <div class="score-item"><div class="score-num" id="g2-level">1</div><div class="score-label">Level</div></div>
+            </div>
+            <div class="game-play-area">
+                <div id="g2-instruction" style="font-size:14px; color:var(--text-muted);">Watch the sequence carefully...</div>
+                <div class="mem-symbols" id="g2-display"></div>
+                <div class="mem-symbols" id="g2-input-btns"></div>
+                <div id="g2-progress" style="font-size:14px; color:var(--text-muted);"></div>
+                <div id="g2-msg" style="font-size:16px; min-height:28px;"></div>
+            </div>
+        </div>
+
+        <!-- Game 3: Emotion Matcher -->
+        <div id="g3" class="game-container">
+            <div class="score-board">
+                <div class="score-item"><div class="score-num" id="g3-score">0</div><div class="score-label">Score</div></div>
+                <div class="score-item"><div class="score-num" id="g3-streak">0</div><div class="score-label">Streak</div></div>
+            </div>
+            <div class="game-play-area">
+                <div class="emoji-big" id="g3-emoji">😊</div>
+                <p style="font-size:14px; color:var(--text-muted);">What emotion is this?</p>
+                <div class="emotion-btns" id="g3-options"></div>
+                <div id="g3-msg" style="font-size:16px; min-height:28px;"></div>
+            </div>
+        </div>
+
+        <!-- Game 4: Speed Tap -->
+        <div id="g4" class="game-container">
+            <div class="score-board">
+                <div class="score-item"><div class="score-num" id="g4-hits">0</div><div class="score-label">Hits</div></div>
+                <div class="score-item"><div class="score-num" id="g4-misses">0</div><div class="score-label">Misses</div></div>
+                <div class="score-item"><div class="score-num" id="g4-best">–</div><div class="score-label">Best ms</div></div>
+            </div>
+            <div class="game-play-area">
+                <div class="tap-target" id="g4-target" onclick="tapTarget()">🎯</div>
+                <div class="time-bar"><div class="time-fill" id="g4-timer" style="width:100%"></div></div>
+                <p id="g4-msg" style="font-size:14px; color:var(--text-muted);">Tap the target!</p>
+                <button class="btn btn-primary" id="g4-start" onclick="startSpeedGame()">Start Game</button>
+            </div>
+        </div>
+
+        <!-- Game 5: Color Matcher -->
+        <div id="g5" class="game-container">
+            <div class="score-board">
+                <div class="score-item"><div class="score-num" id="g5-score">0</div><div class="score-label">Score</div></div>
+                <div class="score-item"><div class="score-num" id="g5-level">1</div><div class="score-label">Level</div></div>
+                <div class="score-item"><div class="score-num" id="g5-streak">0</div><div class="score-label">Streak</div></div>
+            </div>
+            <div class="game-play-area">
+                <p style="font-size:14px; color:var(--text-muted);">What COLOR is the text? (Ignore what it says!)</p>
+                <div id="g5-word" style="font-family:var(--font-display); font-size:56px; font-weight:800; margin:20px;"></div>
+                <div class="emotion-btns" id="g5-options" style="max-width:400px;"></div>
+                <div id="g5-msg" style="font-size:16px; min-height:28px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Three.js Background -->
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.getElementById('bg-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 0, 15);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    const particlesGeometry = new THREE.BufferGeometry();
+    const particlesCount = 1500;
+    const posArray = new Float32Array(particlesCount * 3);
+    
+    for (let i = 0; i < particlesCount; i++) {
+        posArray[i * 3] = (Math.random() - 0.5) * 40;
+        posArray[i * 3 + 1] = (Math.random() - 0.5) * 30;
+        posArray[i * 3 + 2] = (Math.random() - 0.5) * 30 - 15;
+    }
+    
+    particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+    const particlesMaterial = new THREE.PointsMaterial({ size: 0.06, color: 0x6366f1, transparent: true, opacity: 0.4 });
+    const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particlesMesh);
+    
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+    
+    let time = 0;
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.005;
+        particlesMesh.rotation.y = time * 0.1;
+        particlesMesh.rotation.x = Math.sin(time * 0.2) * 0.1;
+        camera.position.x = Math.sin(time * 0.2) * 0.2;
+        camera.position.y = Math.cos(time * 0.15) * 0.1;
+        camera.lookAt(0, 0, -5);
+        renderer.render(scene, camera);
+    }
+    animate();
+    
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+
+<script>
+    const SYMBOLS = ['🔴','🔵','🟢','🟡','🟣','🟠','⭐','🌙','💎','🔥'];
+    const EMOTIONS = [
+        {name:'Happy',emoji:'😊'},{name:'Sad',emoji:'😢'},{name:'Angry',emoji:'😠'},
+        {name:'Excited',emoji:'🤩'},{name:'Loved',emoji:'🥰'},{name:'Surprised',emoji:'😲'},
+        {name:'Scared',emoji:'😨'},{name:'Confused',emoji:'😕'},{name:'Disgusted',emoji:'🤢'}
+    ];
+    const COLORS = ['Red','Blue','Green','Yellow','Purple'];
+    const COLOR_MAP = {Red:'#ef4444',Blue:'#3b82f6',Green:'#10b981',Yellow:'#fbbf24',Purple:'#a855f7'};
+
+    let g1 = {score:0, level:1, streak:0, pattern:[]};
+    let g2 = {score:0, level:1, seq:[], input:[], phase:'show'};
+    let g3 = {score:0, streak:0, current:null};
+    let g4 = {hits:0, misses:0, best:null, running:false, startTime:0, timer:null};
+    let g5 = {score:0, level:1, streak:0, correct:'', textColor:''};
+    let speedInterval = null;
+
+    function goHub() {
+        document.getElementById('hub').style.display = 'block';
+        document.getElementById('game-area').style.display = 'none';
+        document.querySelectorAll('.game-container').forEach(c => c.classList.remove('active'));
+    }
+
+    function playGame(n) {
+        document.getElementById('hub').style.display = 'none';
+        document.getElementById('game-area').style.display = 'block';
+        document.querySelectorAll('.game-container').forEach(c => c.classList.remove('active'));
+        document.getElementById('g'+n).classList.add('active');
+        const names = {1:'Pattern Matcher',2:'Memory Sequence',3:'Emotion Matcher',4:'Speed Tap',5:'Color Matcher'};
+        document.getElementById('gameName').textContent = names[n];
+        if (n===1) initG1();
+        if (n===2) initG2();
+        if (n===3) initG3();
+        if (n===5) initG5();
+    }
+
+    // Game 1: Pattern Matcher
+    function initG1() {
+        const len = Math.min(3 + Math.floor(g1.level/3), 8);
+        g1.pattern = Array.from({length:len}, () => SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]);
+        document.getElementById('g1-pattern').innerHTML = g1.pattern.join(' ');
+        
+        const options = [g1.pattern.slice()];
+        for (let i=0;i<3;i++) {
+            const v = g1.pattern.slice();
+            v[Math.floor(Math.random()*len)] = SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)];
+            options.push(v);
+        }
+        options.sort(() => Math.random()-0.5);
+        
+        const og = document.getElementById('g1-options');
+        og.innerHTML = options.map((o,i) => `<button class="option-btn" onclick="checkG1(${i},'${o.join(',')}')">${o.join(' ')}</button>`).join('');
+        document.getElementById('g1-msg').innerHTML = '';
+    }
+
+    function checkG1(idx, optStr) {
+        const correct = g1.pattern.join(',') === optStr;
+        const btns = document.querySelectorAll('#g1-options .option-btn');
+        btns[idx].classList.add(correct ? 'correct' : 'wrong');
+        
+        if (correct) {
+            g1.score += 100 * (Math.floor(g1.level/3)+1);
+            g1.streak++;
+            if (g1.streak % 3 === 0 && g1.level < 20) g1.level++;
+            document.getElementById('g1-msg').innerHTML = '<span style="color:var(--success)">✓ Correct! +' + (100*(Math.floor(g1.level/3)+1)) + '</span>';
+        } else {
+            g1.streak = 0;
+            document.getElementById('g1-msg').innerHTML = '<span style="color:var(--danger)">✕ Wrong! Try again</span>';
+        }
+        
+        document.getElementById('g1-score').textContent = g1.score;
+        document.getElementById('g1-level').textContent = g1.level;
+        document.getElementById('g1-streak').textContent = g1.streak;
+        setTimeout(initG1, 1200);
+    }
+
+    // Game 2: Memory Sequence
+    function initG2() {
+        g2.seq = Array.from({length: Math.min(2+Math.floor(g2.level/2),10)}, () => SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]);
+        g2.input = [];
+        g2.phase = 'show';
+        
+        document.getElementById('g2-input-btns').innerHTML = '';
+        document.getElementById('g2-msg').innerHTML = '';
+        document.getElementById('g2-instruction').innerHTML = 'Watch the sequence...';
+        document.getElementById('g2-progress').innerHTML = '';
+        
+        const disp = document.getElementById('g2-display');
+        disp.innerHTML = '';
+        
+        let i = 0;
+        const show = setInterval(() => {
+            if (i >= g2.seq.length) {
+                clearInterval(show);
+                disp.innerHTML = '';
+                g2.phase = 'input';
+                document.getElementById('g2-instruction').innerHTML = 'Now repeat the sequence in order!';
+                buildInputBtns();
+                return;
+            }
+            disp.innerHTML = g2.seq[i];
+            setTimeout(() => disp.innerHTML = '', 600);
+            i++;
+        }, 900);
+    }
+
+    function buildInputBtns() {
+        const btns = document.getElementById('g2-input-btns');
+        btns.innerHTML = SYMBOLS.slice(0,8).map(s => `<span class="mem-symbol" onclick="selectMem('${s}')">${s}</span>`).join('');
+    }
+
+    function selectMem(sym) {
+        g2.input.push(sym);
+        document.getElementById('g2-progress').innerHTML = `${g2.input.length} / ${g2.seq.length}`;
+        
+        if (g2.input.length === g2.seq.length) {
+            const correct = JSON.stringify(g2.input) === JSON.stringify(g2.seq);
+            if (correct) {
+                g2.score += 100*(Math.floor(g2.level/2)+1);
+                if (g2.level < 15) g2.level++;
+                document.getElementById('g2-score').textContent = g2.score;
+                document.getElementById('g2-level').textContent = g2.level;
+                document.getElementById('g2-msg').innerHTML = '<span style="color:var(--success)">🎉 Level Complete!</span>';
+            } else {
+                document.getElementById('g2-msg').innerHTML = '<span style="color:var(--danger)">✕ Wrong sequence!</span>';
+            }
+            setTimeout(initG2, 1500);
+        }
+    }
+
+    // Game 3: Emotion Matcher
+    function initG3() {
+        g3.current = EMOTIONS[Math.floor(Math.random()*EMOTIONS.length)];
+        document.getElementById('g3-emoji').textContent = g3.current.emoji;
+        
+        const opts = [g3.current.name];
+        const others = EMOTIONS.filter(e => e.name !== g3.current.name);
+        for (let i=0;i<5;i++) opts.push(others[Math.floor(Math.random()*others.length)].name);
+        opts.sort(() => Math.random()-0.5);
+        
+        document.getElementById('g3-options').innerHTML = opts.slice(0,6).map(o => 
+            `<button class="emotion-btn" onclick="checkEmotion('${o}')">${o}</button>`
+        ).join('');
+        document.getElementById('g3-msg').innerHTML = '';
+    }
+
+    function checkEmotion(choice) {
+        const correct = choice === g3.current.name;
+        if (correct) { 
+            g3.score += 100; 
+            g3.streak++; 
+            document.getElementById('g3-msg').innerHTML = '<span style="color:var(--success)">✓ Correct! +100</span>'; 
+        } else { 
+            g3.streak = 0; 
+            document.getElementById('g3-msg').innerHTML = `<span style="color:var(--danger)">✕ It was ${g3.current.name}!</span>`; 
+        }
+        document.getElementById('g3-score').textContent = g3.score;
+        document.getElementById('g3-streak').textContent = g3.streak;
+        setTimeout(initG3, 1200);
+    }
+
+    // Game 4: Speed Tap
+    function startSpeedGame() {
+        document.getElementById('g4-start').style.display = 'none';
+        g4.running = true;
+        spawnTarget();
+    }
+
+    function spawnTarget() {
+        const targets = ['🎯','⭐','💎','🔥','⚡'];
+        document.getElementById('g4-target').textContent = targets[Math.floor(Math.random()*targets.length)];
+        document.getElementById('g4-target').style.display = 'block';
+        g4.startTime = Date.now();
+        
+        let timeLeft = 100;
+        clearInterval(speedInterval);
+        speedInterval = setInterval(() => {
+            timeLeft -= 2;
+            document.getElementById('g4-timer').style.width = timeLeft + '%';
+            if (timeLeft <= 0) {
+                clearInterval(speedInterval);
+                g4.misses++;
+                document.getElementById('g4-misses').textContent = g4.misses;
+                document.getElementById('g4-msg').innerHTML = '<span style="color:var(--danger)">⏰ Too slow!</span>';
+                setTimeout(spawnTarget, 800);
+            }
+        }, 30);
+    }
+
+    function tapTarget() {
+        if (!g4.running) return;
+        clearInterval(speedInterval);
+        const rt = Date.now() - g4.startTime;
+        g4.hits++;
+        if (!g4.best || rt < g4.best) { g4.best = rt; document.getElementById('g4-best').textContent = rt + 'ms'; }
+        document.getElementById('g4-hits').textContent = g4.hits;
+        document.getElementById('g4-msg').innerHTML = `<span style="color:var(--success)">⚡ ${rt}ms!</span>`;
+        setTimeout(spawnTarget, 400);
+    }
+
+    // Game 5: Color Matcher
+    function initG5() {
+        const word = COLORS[Math.floor(Math.random()*COLORS.length)];
+        const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+        g5.correct = color;
+        
+        document.getElementById('g5-word').textContent = word;
+        document.getElementById('g5-word').style.color = COLOR_MAP[color];
+        
+        const opts = COLORS.slice().sort(() => Math.random()-0.5).slice(0,4);
+        if (!opts.includes(color)) opts[0] = color;
+        opts.sort(() => Math.random()-0.5);
+        
+        document.getElementById('g5-options').innerHTML = opts.map(c => 
+            `<button class="emotion-btn" onclick="checkColor('${c}')">${c}</button>`
+        ).join('');
+        document.getElementById('g5-msg').innerHTML = '';
+    }
+
+    function checkColor(choice) {
+        const correct = choice === g5.correct;
+        if (correct) {
+            g5.score += 100*(Math.floor(g5.level/3)+1);
+            g5.streak++;
+            if (g5.streak % 3 === 0 && g5.level < 15) g5.level++;
+            document.getElementById('g5-msg').innerHTML = '<span style="color:var(--success)">✓ Correct!</span>';
+        } else {
+            g5.streak = 0;
+            document.getElementById('g5-msg').innerHTML = `<span style="color:var(--danger)">✕ It was ${g5.correct}!</span>`;
+        }
+        document.getElementById('g5-score').textContent = g5.score;
+        document.getElementById('g5-level').textContent = g5.level;
+        document.getElementById('g5-streak').textContent = g5.streak;
+        setTimeout(initG5, 1200);
+    }
+</script>
+</body>
+</html>

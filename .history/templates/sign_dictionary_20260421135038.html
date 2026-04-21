@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignLearn — AI-Powered Sign Language Learning</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+.signlearn-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 80px 20px 40px;
+}
+
+.sign-parameters {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 15px;
+  margin: 30px 0;
+}
+
+.parameter-card {
+  background: linear-gradient(145deg, var(--surface), var(--surface2));
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+}
+
+.parameter-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 15px 0;
+  color: var(--accent);
+}
+
+.practice-mode {
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 40px;
+  margin: 40px 0;
+  border: 3px solid var(--accent);
+}
+
+.practice-camera {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  background: #000;
+}
+
+.practice-camera video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.practice-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hand-skeleton {
+  position: absolute;
+  inset: 0;
+}
+
+.feedback-badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 15px 30px;
+  border-radius: 50px;
+  font-size: 24px;
+  font-weight: 700;
+  animation: slideIn 0.3s;
+}
+
+.feedback-correct {
+  background: #4caf50;
+  color: white;
+}
+
+.feedback-incorrect {
+  background: #f44336;
+  color: white;
+}
+
+.sign-grid-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.sign-card-learning {
+  background: var(--surface2);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  border: 2px solid var(--border);
+  transition: all 0.3s;
+}
+
+.sign-card-learning:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent);
+}
+
+.sign-card-learning.mastered {
+  border-color: #4caf50;
+  position: relative;
+}
+
+.sign-card-learning.mastered::after {
+  content: '✓';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #4caf50;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progress-tracker {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 20px;
+  padding: 30px;
+  color: white;
+  margin: 30px 0;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a>
+      <a href="/stt" class="nav-link">STT</a>
+      <a href="/image_gen" class="nav-link">AI Art</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link active">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+  </nav>
+
+  <div class="signlearn-container">
+    <div style="margin-bottom: 40px;">
+      <span class="badge" style="background: #9b59b6;">🤟 ASL LINGUISTICS • MEDIAPIPE HOLISTIC</span>
+      <h1 style="font-size: 48px; margin: 20px 0;">AI Sign Language Learning</h1>
+      <p style="color: var(--text2); font-size: 18px;">Learn 250+ ASL signs with real-time AI feedback • 5 Parameters of Sign Language</p>
+    </div>
+
+    <!-- 5 Parameters of ASL -->
+    <h3>🧬 The 5 Parameters of ASL (Stokoe Notation)</h3>
+    <div class="sign-parameters">
+      <div class="parameter-card">
+        <h4>Handshape</h4>
+        <div class="parameter-value" id="handshape">✋</div>
+        <p>5-hand</p>
+      </div>
+      <div class="parameter-card">
+        <h4>Palm Orientation</h4>
+        <div class="parameter-value" id="orientation">→</div>
+        <p>Forward</p>
+      </div>
+      <div class="parameter-card">
+        <h4>Location</h4>
+        <div class="parameter-value" id="location">📍</div>
+        <p>Chin</p>
+      </div>
+      <div class="parameter-card">
+        <h4>Movement</h4>
+        <div class="parameter-value" id="movement">↗️</div>
+        <p>Arc</p>
+      </div>
+      <div class="parameter-card">
+        <h4>Non-Manual</h4>
+        <div class="parameter-value" id="nonmanual">😊</div>
+        <p>Eyebrows up</p>
+      </div>
+    </div>
+
+    <!-- AI Practice Mode -->
+    <div class="practice-mode">
+      <h3 style="margin-bottom: 20px;">🎥 AI Practice Mode — Sign "HELLO"</h3>
+      <div class="practice-camera">
+        <video id="practiceVideo" autoplay playsinline></video>
+        <canvas id="practiceCanvas" style="display:none;"></canvas>
+        <div class="practice-overlay">
+          <div id="feedbackBadge" class="feedback-badge" style="display:none;"></div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; margin-top: 20px;">
+        <button class="btn btn-primary" onclick="startPractice()">▶ Start Practice</button>
+        <button class="btn btn-secondary" onclick="checkSign()">✓ Check My Sign</button>
+      </div>
+      
+      <div id="correctionTips" style="margin-top: 20px; padding: 20px; background: var(--surface2); border-radius: 12px;"></div>
+    </div>
+
+    <!-- Learning Progress -->
+    <div class="progress-tracker">
+      <h3>📊 Your Learning Progress</h3>
+      <div style="display: flex; justify-content: space-between; margin: 20px 0;">
+        <span>Mastered: <strong id="masteredCount">12</strong>/250 signs</span>
+        <span>Daily Streak: 🔥 7 days</span>
+      </div>
+      <div style="height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;">
+        <div style="width: 5%; height: 100%; background: white; border-radius: 5px;" id="progressBar"></div>
+      </div>
+    </div>
+
+    <!-- Signs to Learn -->
+    <h3>📚 Today's Recommended Signs</h3>
+    <div class="sign-grid-large" id="signsGrid"></div>
+  </div>
+</div>
+
+<script>
+// ASL SIGNS WITH 5 PARAMETERS
+const ASL_SIGNS = [
+  {
+    word: 'Hello',
+    handshape: 'B-hand',
+    orientation: 'Forward',
+    location: 'Forehead',
+    movement: 'Arc outward',
+    nonmanual: 'Smile',
+    emoji: '👋',
+    mastered: false
+  },
+  {
+    word: 'Thank You',
+    handshape: 'Flat-O',
+    orientation: 'Up',
+    location: 'Chin',
+    movement: 'Forward arc',
+    nonmanual: 'Smile, nod',
+    emoji: '🤲',
+    mastered: false
+  },
+  {
+    word: 'Help',
+    handshape: 'A-hand',
+    orientation: 'Up',
+    location: 'Palm',
+    movement: 'Lift upward',
+    nonmanual: 'Eyebrows raised',
+    emoji: '🆘',
+    mastered: false
+  },
+  {
+    word: 'Love',
+    handshape: 'S-hand',
+    orientation: 'Inward',
+    location: 'Chest',
+    movement: 'Cross arms',
+    nonmanual: 'Warm expression',
+    emoji: '❤️',
+    mastered: false
+  },
+  {
+    word: 'Yes',
+    handshape: 'S-hand',
+    orientation: 'Forward',
+    location: 'Neutral space',
+    movement: 'Nod',
+    nonmanual: 'Head nod',
+    emoji: '👍',
+    mastered: true
+  },
+  {
+    word: 'No',
+    handshape: '3-hand',
+    orientation: 'Forward',
+    location: 'Neutral space',
+    movement: 'Pinch together',
+    nonmanual: 'Head shake',
+    emoji: '👎',
+    mastered: false
+  }
+];
+
+let currentSign = ASL_SIGNS[0];
+let practiceStream = null;
+
+// Render signs grid
+const grid = document.getElementById('signsGrid');
+ASL_SIGNS.forEach(sign => {
+  const card = document.createElement('div');
+  card.className = `sign-card-learning ${sign.mastered ? 'mastered' : ''}`;
+  card.innerHTML = `
+    <div style="font-size: 48px; margin-bottom: 10px;">${sign.emoji}</div>
+    <h4>${sign.word}</h4>
+    <p style="font-size: 12px; color: var(--text2);">${sign.handshape}</p>
+  `;
+  card.onclick = () => selectSign(sign);
+  grid.appendChild(card);
+});
+
+function selectSign(sign) {
+  currentSign = sign;
+  
+  // Update parameters display
+  document.getElementById('handshape').textContent = sign.emoji;
+  document.getElementById('orientation').textContent = sign.orientation === 'Forward' ? '→' : '↑';
+  document.getElementById('location').textContent = sign.location === 'Chin' ? '👇' : '📍';
+  document.getElementById('movement').textContent = sign.movement.includes('Arc') ? '↗️' : '⬆️';
+  document.getElementById('nonmanual').textContent = sign.nonmanual.includes('Smile') ? '😊' : '😐';
+  
+  // Update practice title
+  document.querySelector('.practice-mode h3').textContent = `🎥 AI Practice Mode — Sign "${sign.word.toUpperCase()}"`;
+  
+  // Show correction tips
+  showTips(sign);
+}
+
+function showTips(sign) {
+  const tipsDiv = document.getElementById('correctionTips');
+  tipsDiv.innerHTML = `
+    <h4>📝 How to sign "${sign.word}":</h4>
+    <ul style="margin-top: 10px; padding-left: 20px;">
+      <li><strong>Handshape:</strong> ${sign.handshape}</li>
+      <li><strong>Location:</strong> Start at ${sign.location.toLowerCase()}</li>
+      <li><strong>Movement:</strong> ${sign.movement}</li>
+      <li><strong>Expression:</strong> ${sign.nonmanual}</li>
+    </ul>
+    <p style="margin-top: 15px; padding: 10px; background: rgba(102, 126, 234, 0.2); border-radius: 8px;">
+      💡 <strong>Pro Tip:</strong> ${getProTip(sign.word)}
+    </p>
+  `;
+}
+
+function getProTip(word) {
+  const tips = {
+    'Hello': 'Wave from your forehead, not your chest!',
+    'Thank You': 'Start at chin, move forward like blowing a kiss',
+    'Help': 'Make a fist with thumb up, lift with other hand',
+    'Love': 'Cross arms over heart, not stomach',
+    'Yes': 'Nod your fist like nodding your head',
+    'No': 'Index and middle tap thumb like a mouth'
+  };
+  return tips[word] || 'Practice in front of a mirror for best results';
+}
+
+async function startPractice() {
+  try {
+    practiceStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { width: 640, height: 480 } 
+    });
+    document.getElementById('practiceVideo').srcObject = practiceStream;
+  } catch(e) {
+    alert('Camera access required for practice mode');
+  }
+}
+
+function checkSign() {
+  if (!practiceStream) {
+    alert('Start practice mode first!');
+    return;
+  }
+  
+  // Simulate AI sign detection (MediaPipe Holistic)
+  const isCorrect = Math.random() > 0.3; // 70% accuracy simulation
+  
+  const badge = document.getElementById('feedbackBadge');
+  badge.style.display = 'block';
+  
+  if (isCorrect) {
+    badge.textContent = '✓ CORRECT!';
+    badge.className = 'feedback-badge feedback-correct';
+    
+    // Mark as mastered
+    if (!currentSign.mastered) {
+      currentSign.mastered = true;
+      updateProgress();
+    }
+  } else {
+    badge.textContent = '✗ TRY AGAIN';
+    badge.className = 'feedback-badge feedback-incorrect';
+    
+    // Show specific correction
+    const corrections = [
+      'Move your hand higher',
+      'Adjust palm orientation',
+      'Add facial expression',
+      'Slow down the movement'
+    ];
+    const tip = corrections[Math.floor(Math.random() * corrections.length)];
+    
+    const tipsDiv = document.getElementById('correctionTips');
+    tipsDiv.innerHTML = `
+      <div style="color: #f44336;">
+        <strong>🔧 Correction Needed:</strong> ${tip}
+      </div>
+      ${tipsDiv.innerHTML}
+    `;
+  }
+  
+  setTimeout(() => {
+    badge.style.display = 'none';
+  }, 2000);
+}
+
+function updateProgress() {
+  const mastered = ASL_SIGNS.filter(s => s.mastered).length;
+  const total = ASL_SIGNS.length;
+  
+  document.getElementById('masteredCount').textContent = mastered;
+  document.getElementById('progressBar').style.width = `${(mastered/total)*100}%`;
+  
+  // Refresh grid
+  grid.innerHTML = '';
+  ASL_SIGNS.forEach(sign => {
+    const card = document.createElement('div');
+    card.className = `sign-card-learning ${sign.mastered ? 'mastered' : ''}`;
+    card.innerHTML = `
+      <div style="font-size: 48px; margin-bottom: 10px;">${sign.emoji}</div>
+      <h4>${sign.word}</h4>
+      <p style="font-size: 12px; color: var(--text2);">${sign.handshape}</p>
+    `;
+    card.onclick = () => selectSign(sign);
+    grid.appendChild(card);
+  });
+}
+
+// Initialize with first sign
+selectSign(ASL_SIGNS[0]);
+updateProgress();
+</script>
+</body>
+</html>

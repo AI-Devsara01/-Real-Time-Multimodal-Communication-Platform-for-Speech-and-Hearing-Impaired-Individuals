@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CommuniSense — Visual Alert System</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  .alerts-hero { padding:9rem 0 3rem; text-align:center; }
+  .alert-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1.25rem; margin:3rem 0; }
+  
+  .alert-btn {
+    background:var(--surface); border:1px solid var(--border2);
+    border-radius:var(--radius-lg); padding:2rem 1.5rem; text-align:center;
+    cursor:pointer; transition:all .25s; display:flex; flex-direction:column;
+    align-items:center; gap:.75rem;
+  }
+  .alert-btn:hover { transform:translateY(-4px); border-color:var(--border); box-shadow:var(--shadow); }
+  .alert-icon { font-size:3.5rem; line-height:1; }
+  .alert-name { font-weight:700; font-size:1rem; }
+  .alert-desc { font-size:.8rem; color:var(--text2); }
+
+  /* FLASH OVERLAY */
+  #flashOverlay {
+    position:fixed; inset:0; z-index:9990; pointer-events:none;
+    opacity:0; transition:opacity .1s;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:1.5rem;
+  }
+  #flashOverlay.critical-bg { background:rgba(255,0,0,.9); }
+  #flashOverlay.high-bg     { background:rgba(255,69,0,.85); }
+  #flashOverlay.medium-bg   { background:rgba(241,196,15,.8); }
+  #flashOverlay.low-bg      { background:rgba(52,152,219,.7); }
+  #flashOverlay.active      { opacity:1; pointer-events:all; }
+  
+  #flashIcon    { font-size:8rem; animation:flash-pulse 0.4s ease-in-out infinite; }
+  #flashMessage { font-family:var(--font-head); font-size:3rem; font-weight:800; color:#fff; text-align:center; padding:0 2rem; text-shadow:0 2px 20px rgba(0,0,0,.5); }
+  #flashTime    { font-size:1.2rem; color:rgba(255,255,255,.8); }
+  #flashClose   { padding:.75rem 2rem; background:rgba(0,0,0,.4); border:2px solid rgba(255,255,255,.6); border-radius:12px; color:#fff; font-size:1rem; cursor:pointer; font-weight:600; }
+  
+  @keyframes flash-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+  @keyframes screen-shake {
+    0%,100%{transform:none}
+    10%,30%,50%,70%,90%{transform:translateX(-6px)}
+    20%,40%,60%,80%{transform:translateX(6px)}
+  }
+  .shake { animation:screen-shake .5s ease-in-out; }
+
+  .log-list { display:flex; flex-direction:column; gap:.5rem; max-height:280px; overflow-y:auto; }
+  .log-item {
+    display:flex; align-items:center; gap:1rem; padding:.75rem 1rem;
+    background:var(--surface2); border-radius:10px; border-left:3px solid var(--accent);
+  }
+  .log-item.critical { border-left-color:var(--danger); }
+  .log-item.high     { border-left-color:#ff6b35; }
+  .log-item.medium   { border-left-color:var(--warning); }
+  .log-item.low      { border-left-color:var(--accent); }
+
+  .priority-badge { font-size:.65rem; font-weight:700; padding:.2rem .5rem; border-radius:999px; text-transform:uppercase; letter-spacing:.04em; }
+  .p-critical { background:rgba(255,56,96,.2); color:var(--danger); }
+  .p-high     { background:rgba(255,107,53,.2); color:#ff6b35; }
+  .p-medium   { background:rgba(255,183,0,.2);  color:var(--warning); }
+  .p-low      { background:rgba(79,139,255,.2); color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <nav class="nav">
+    <a href="/dashboard" class="nav-logo"><div class="logo-dot"></div>CommuniSense</a>
+    <div class="nav-links">
+      <a href="/tts" class="nav-link">TTS</a><a href="/stt" class="nav-link">STT</a>
+      <a href="/word_recog" class="nav-link">Words</a><a href="/games" class="nav-link">Games</a>
+      <a href="/emotion_translate" class="nav-link">Emotion</a>
+      <a href="/visual_alert" class="nav-link active">Alerts</a>
+      <a href="/sign_dictionary" class="nav-link">Signs</a>
+      <a href="/mood_journal" class="nav-link">Journal</a>
+      <a href="/lip_sync" class="nav-link">LipSync</a>
+    </div>
+    <div class="nav-actions"><button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign Out</button></div>
+  </nav>
+
+  <!-- FLASH OVERLAY -->
+  <div id="flashOverlay">
+    <div id="flashIcon">🔔</div>
+    <div id="flashMessage">Alert!</div>
+    <div id="flashTime"></div>
+    <button id="flashClose" onclick="closeAlert()">✕ Dismiss</button>
+  </div>
+
+  <div class="container">
+    <div class="alerts-hero">
+      <div class="badge badge-danger mb-2 animate-fade-up">🚨 VISUAL ALERT SYSTEM</div>
+      <h1 class="hero-title animate-fade-up" data-delay="1">Never Miss<br>an Alert Again</h1>
+      <p class="hero-sub animate-fade-up" data-delay="2">
+        Full-screen visual notifications + screen vibration for deaf and hard-of-hearing users.
+        Simulate any household sound alert below.
+      </p>
+    </div>
+
+    <div class="alert-grid" id="alertGrid"></div>
+
+    <div class="card" style="margin:2rem 0">
+      <div class="flex items-center justify-between mb-3">
+        <h3>📋 Alert Log</h3>
+        <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+      </div>
+      <div class="log-list" id="logList">
+        <div style="color:var(--text3);font-size:.875rem;text-align:center;padding:1rem">No alerts triggered yet</div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="card mb-4">
+      <h3 class="mb-3">⚙️ Settings</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem">
+        <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer">
+          <input type="checkbox" id="flashEnabled" checked style="width:18px;height:18px;accent-color:var(--accent)">
+          <span style="font-size:.9rem">Screen Flash</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer">
+          <input type="checkbox" id="shakeEnabled" checked style="width:18px;height:18px;accent-color:var(--accent)">
+          <span style="font-size:.9rem">Screen Shake</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:.75rem;cursor:pointer">
+          <input type="checkbox" id="vibrateEnabled" checked style="width:18px;height:18px;accent-color:var(--accent)">
+          <span style="font-size:.9rem">Device Vibration</span>
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+<script>
+const ALERTS = {
+  doorbell:  {icon:'🔔', name:'Doorbell',   desc:'Someone at the door',     color:'medium'},
+  alarm:     {icon:'🚨', name:'Fire Alarm', desc:'Emergency alarm',          color:'critical'},
+  baby:      {icon:'👶', name:'Baby Crying',desc:'Infant needs attention',   color:'high'},
+  phone:     {icon:'📱', name:'Phone Call', desc:'Incoming call',            color:'medium'},
+  smoke:     {icon:'🔥', name:'Smoke Alert',desc:'Danger! Smoke detected',   color:'critical'},
+  dog:       {icon:'🐕', name:'Dog Barking',desc:'Pet needs attention',      color:'low'},
+  knock:     {icon:'🚪', name:'Door Knock', desc:'Someone knocking',         color:'medium'},
+  microwave: {icon:'📟', name:'Microwave',  desc:'Food is ready',            color:'low'},
+};
+
+const grid = document.getElementById('alertGrid');
+Object.entries(ALERTS).forEach(([key, a]) => {
+  const d = document.createElement('div');
+  d.className = 'alert-btn';
+  d.innerHTML = `<div class="alert-icon">${a.icon}</div><div class="alert-name">${a.name}</div><div class="alert-desc">${a.desc}</div><span class="priority-badge p-${a.color}">${a.color}</span>`;
+  d.onclick = () => triggerAlert(key);
+  grid.appendChild(d);
+});
+
+const log = [];
+
+async function triggerAlert(alertKey) {
+  try {
+    const data = await apiFetch(`/api/visual_alert`, {method:'POST', body:JSON.stringify({alert:alertKey})});
+    showVisualAlert(data);
+    addLog(data);
+  } catch(e) {}
+}
+
+function showVisualAlert(data) {
+  const overlay  = document.getElementById('flashOverlay');
+  const icon     = document.getElementById('flashIcon');
+  const msg      = document.getElementById('flashMessage');
+  const timeEl   = document.getElementById('flashTime');
+
+  icon.textContent = data.icon;
+  msg.textContent  = data.message;
+  timeEl.textContent = `🕐 ${data.timestamp}`;
+
+  overlay.className = `active ${data.priority}-bg`;
+
+  if (document.getElementById('shakeEnabled').checked) {
+    document.body.classList.add('shake');
+    setTimeout(() => document.body.classList.remove('shake'), 600);
+  }
+
+  if (document.getElementById('vibrateEnabled').checked && navigator.vibrate) {
+    const patterns = {critical:[300,100,300,100,300], high:[200,100,200], medium:[150,100,150], low:[100]};
+    navigator.vibrate(patterns[data.priority] || [200]);
+  }
+
+  // Auto dismiss low priority
+  if (data.priority === 'low') {
+    setTimeout(closeAlert, 4000);
+  }
+}
+
+function closeAlert() {
+  document.getElementById('flashOverlay').className = '';
+}
+
+function addLog(data) {
+  log.unshift(data);
+  const listEl = document.getElementById('logList');
+  listEl.innerHTML = log.slice(0,10).map(d => `
+    <div class="log-item ${d.priority}">
+      <span style="font-size:1.75rem">${d.icon}</span>
+      <div style="flex:1">
+        <div style="font-weight:600">${d.message}</div>
+        <div style="font-size:.75rem;color:var(--text3)">${d.timestamp}</div>
+      </div>
+      <span class="priority-badge p-${d.priority}">${d.priority}</span>
+    </div>
+  `).join('');
+}
+
+function clearLog() {
+  log.length = 0;
+  document.getElementById('logList').innerHTML = '<div style="color:var(--text3);font-size:.875rem;text-align:center;padding:1rem">No alerts triggered yet</div>';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeAlert();
+});
+</script>
+</body>
+</html>

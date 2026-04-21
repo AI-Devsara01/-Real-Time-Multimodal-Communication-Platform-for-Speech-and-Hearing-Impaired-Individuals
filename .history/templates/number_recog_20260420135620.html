@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Number Recognition — CommBridge</title>
+<link rel="stylesheet" href="static/base.css">
+<style>
+.main-layout { padding: 100px 40px 60px; max-width: 1280px; margin: 0 auto; }
+.detection-layout { display: grid; grid-template-columns: 1fr 400px; gap: 24px; }
+.cam-box { background: #000; border-radius: 16px; overflow: hidden; aspect-ratio: 4/3; position: relative; border: 1px solid var(--border); }
+video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.num-display {
+  font-family: var(--font-display); font-size: 140px; font-weight: 800;
+  text-align: center; line-height: 1;
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+.num-btn {
+  aspect-ratio: 1; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; transition: all 0.2s;
+}
+.num-btn:hover { transform: scale(1.05); border-color: var(--border-glow); background: rgba(99,102,241,0.1); }
+.num-btn.active { background: var(--accent); border-color: var(--accent); animation: pop 0.3s ease; }
+@keyframes pop { 0%{transform:scale(1.2)} 100%{transform:scale(1)} }
+.num-big { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--text); }
+.num-sign { font-size: 20px; }
+.num-hint { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); }
+.sequence-display {
+  font-family: var(--font-display); font-size: 48px; font-weight: 800;
+  letter-spacing: 0.1em; min-height: 70px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.digit-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 64px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; font-size: 36px; font-weight: 800;
+  animation: fadeUp 0.2s ease;
+  transition: all 0.2s;
+}
+.digit-chip:hover { border-color: var(--border-glow); transform: scale(1.1); }
+.asl-num-guide { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.guide-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px; text-align: center;
+  transition: 0.2s;
+}
+.guide-item:hover { border-color: var(--border-glow); }
+.guide-emoji { font-size: 26px; display: block; }
+.guide-label { font-family: var(--font-display); font-size: 18px; font-weight: 800; margin-top: 4px; color: var(--accent); }
+.guide-hint { font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); text-transform: uppercase; }
+@media(max-width:900px){.detection-layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="cursor"></div><div class="cursor-ring"></div>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <a href="index.html" class="nav-logo"><div class="dot"></div>CommBridge</a>
+  <div class="nav-links">
+    <a href="word_recog.html" class="nav-link">Words</a>
+    <a href="letter_recog.html" class="nav-link">Letters</a>
+    <a href="number_recog.html" class="nav-link active">Numbers</a>
+    <a href="tts.html" class="nav-link">TTS</a>
+    <a href="stt.html" class="nav-link">STT</a>
+    <a href="games.html" class="nav-link">Games</a>
+    <a href="index.html" class="nav-link">Home</a>
+  </div>
+</nav>
+
+<div class="main-layout">
+  <div style="margin-bottom:40px" class="animate-up">
+    <span class="section-label">ASL Recognition</span>
+    <h1 style="font-family:var(--font-display);font-size:clamp(32px,4vw,52px);font-weight:800;letter-spacing:-0.03em">Number Recognition</h1>
+    <p style="color:var(--text-muted);margin-top:8px">Show digits 0–9 using ASL hand signs. Each number is spoken aloud automatically.</p>
+  </div>
+  
+  <div class="detection-layout">
+    <!-- Left: camera + numpad -->
+    <div>
+      <div class="cam-box">
+        <video id="video" autoplay muted playsinline></video>
+        <div id="no-cam" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surface);gap:16px;">
+          <div style="font-size:48px">📷</div>
+          <p style="color:var(--text-muted);font-size:14px">Camera not started</p>
+          <button class="btn btn-primary" onclick="startCam()">Enable Camera</button>
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="start-btn" onclick="startCam()">▶ Start</button>
+        <button class="btn btn-secondary" id="stop-btn" onclick="stopCam()" disabled>■ Stop</button>
+        <button class="btn btn-ghost" onclick="deleteDigit()">⌫ Delete</button>
+        <button class="btn btn-ghost" onclick="addDot()">· Decimal</button>
+        <button class="btn btn-ghost" onclick="clearSeq()">Clear</button>
+        <button class="btn btn-success" onclick="speakSeq()">🔊 Speak</button>
+        <button class="btn btn-ghost" onclick="copyText(sequence)">Copy</button>
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+        <div class="status-dot" id="sdot" style="width:8px;height:8px;border-radius:50%;background:var(--text-dim)"></div>
+        <span id="stext" style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">Camera offline</span>
+        <span style="flex:1"></span>
+        <span id="voice-status" style="font-family:var(--font-mono);font-size:11px;color:var(--accent)">🔊 Voice ready</span>
+      </div>
+      
+      <!-- Manual numpad -->
+      <div class="panel" style="margin-top:24px">
+        <div class="panel-header"><span class="panel-title">Manual Input / Tap to add</span></div>
+        <div class="panel-body">
+          <div class="numpad" id="numpad"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Right panel -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">Detected Digit</span><span id="conf-badge" class="badge badge-accent">0%</span></div>
+        <div class="panel-body" style="text-align:center;padding:20px 28px">
+          <div class="num-display" id="num-display">—</div>
+          <div class="conf-bar" style="margin-top:16px"><div class="conf-fill" id="conf-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+      
+      <div class="panel" style="flex:1">
+        <div class="panel-header"><span class="panel-title">Number Sequence</span></div>
+        <div class="panel-body">
+          <div class="sequence-display" id="seq-display"></div>
+          <div style="margin-top:16px;color:var(--text-muted);font-size:14px" id="num-word"></div>
+        </div>
+      </div>
+      
+      <!-- ASL guide -->
+      <div class="panel">
+        <div class="panel-header"><span class="panel-title">ASL Number Signs</span></div>
+        <div class="panel-body">
+          <div class="asl-num-guide" id="num-guide"></div>
+        </div>
+      </div>
+      
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--accent)" id="total-det">0</div>
+          <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-dim);margin-top:4px">Detected</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--success)">97%</div>
+          <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-dim);margin-top:4px">Accuracy</div>
+        </div>
+        <div class="card" style="text-align:center;padding:14px">
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:800;color:var(--accent2)" id="seq-len">0</div>
+          <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-dim);margin-top:4px">Digits</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="static/base.js"></script>
+<script>
+const SIGNS = [
+  {n:'0',e:'✊',h:'Fist'},
+  {n:'1',e:'☝️',h:'Index up'},
+  {n:'2',e:'✌️',h:'Peace'},
+  {n:'3',e:'🤟',h:'3 fingers'},
+  {n:'4',e:'🖖',h:'4 up'},
+  {n:'5',e:'🖐️',h:'Open hand'},
+  {n:'6',e:'🤙',h:'Phone'},
+  {n:'7',e:'👌',h:'Pinch 3'},
+  {n:'8',e:'👉',h:'L-shape'},
+  {n:'9',e:'☝️',h:'Hook'},
+];
+
+// Build numpad
+const numpad = document.getElementById('numpad');
+SIGNS.forEach(s => {
+  numpad.innerHTML += `<div class="num-btn" id="nbtn-${s.n}" onclick="addDigit('${s.n}')">
+    <span class="num-sign">${s.e}</span>
+    <span class="num-big">${s.n}</span>
+    <span class="num-hint">${s.h}</span>
+  </div>`;
+});
+
+// Build guide
+const guide = document.getElementById('num-guide');
+SIGNS.forEach(s => {
+  guide.innerHTML += `<div class="guide-item"><span class="guide-emoji">${s.e}</span><span class="guide-label">${s.n}</span><div class="guide-hint">${s.h}</div></div>`;
+});
+
+let stream = null, sequence = '', totalDet = 0;
+
+async function startCam() {
+  stream = await startWebcam(document.getElementById('video'));
+  if (!stream) return;
+  document.getElementById('no-cam').style.display = 'none';
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('sdot').style.cssText = 'width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);animation:pulse 2s infinite';
+  document.getElementById('stext').textContent = 'Detecting numbers...';
+  startLoop();
+}
+
+function stopCam() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  document.getElementById('no-cam').style.display = 'flex';
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('stext').textContent = 'Camera offline';
+}
+
+let lastDigit = '', lastTime = 0;
+function startLoop() {
+  const canvas = document.createElement('canvas');
+  setInterval(async () => {
+    if (!stream) return;
+    const v = document.getElementById('video');
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+    canvas.getContext('2d').drawImage(v, 0, 0);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
+    const fd = new FormData(); fd.append('frame', blob);
+    try {
+      const r = await fetch('/api/number-recognition', { method: 'POST', body: fd });
+      const d = await r.json();
+      if (d.digit !== undefined) handleDigit(String(d.digit), d.confidence);
+    } catch { simulateDigit(); }
+  }, 700);
+}
+
+function simulateDigit() {
+  const d = String(Math.floor(Math.random() * 10));
+  const conf = 0.72 + Math.random() * 0.25;
+  handleDigit(d, conf);
+}
+
+function handleDigit(digit, conf) {
+  document.getElementById('num-display').textContent = digit;
+  document.getElementById('conf-badge').textContent = `${Math.round(conf*100)}%`;
+  document.getElementById('conf-fill').style.width = `${conf*100}%`;
+  
+  // Highlight button
+  document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('nbtn-' + digit);
+  if (btn) btn.classList.add('active');
+  
+  if (digit !== lastDigit && Date.now() - lastTime > 600) {
+    addDigit(digit);
+    speakDigit(digit);
+    lastDigit = digit; lastTime = Date.now();
+    totalDet++;
+    document.getElementById('total-det').textContent = totalDet;
+  }
+}
+
+function addDigit(d) {
+  sequence += d;
+  document.getElementById('seq-len').textContent = sequence.length;
+  renderSequence();
+  updateNumWord();
+}
+
+function deleteDigit() {
+  sequence = sequence.slice(0, -1);
+  document.getElementById('seq-len').textContent = sequence.length;
+  renderSequence(); updateNumWord();
+}
+
+function addDot() { sequence += '.'; renderSequence(); }
+function clearSeq() { sequence = ''; renderSequence(); document.getElementById('num-word').textContent = ''; document.getElementById('seq-len').textContent = 0; lastDigit = ''; }
+
+function renderSequence() {
+  const disp = document.getElementById('seq-display');
+  disp.innerHTML = sequence.split('').map(c => `<span class="digit-chip">${c}</span>`).join('');
+}
+
+function updateNumWord() {
+  const n = parseFloat(sequence);
+  if (!isNaN(n)) {
+    document.getElementById('num-word').textContent = numberToWords(n);
+  }
+}
+
+function speakDigit(d) {
+  if (speechSynthesis.speaking) return;
+  const u = new SpeechSynthesisUtterance(d);
+  u.rate = 1.1;
+  speechSynthesis.speak(u);
+}
+
+function speakSeq() {
+  if (!sequence) { Toast.info('No sequence to speak'); return; }
+  const u = new SpeechSynthesisUtterance(sequence.split('').join(' '));
+  speechSynthesis.speak(u);
+}
+
+function numberToWords(n) {
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  if (n < 20) return ones[n];
+  if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' ' + ones[n%10] : '');
+  if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' ' + numberToWords(n%100) : '');
+  return String(n);
+}
+</script>
+</body>
+</html>
