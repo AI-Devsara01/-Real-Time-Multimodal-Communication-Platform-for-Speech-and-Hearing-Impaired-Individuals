@@ -1,57 +1,107 @@
 """
 CommuniSense - Real-Time Multimodal Communication Platform
-With MongoDB Data Storage
+With MongoDB + Fallback Storage
 """
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
 from flask_cors import CORS
 import os, json, base64, tempfile, time, uuid, hashlib, re
 from datetime import datetime
 from io import BytesIO
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.secret_key = "communisense_secret_2024"
 CORS(app)
 
 # ============================================
-# MONGODB CONNECTION
+# STORAGE (MongoDB with Fallback)
 # ============================================
 
-# Get connection string from environment variable (Render) or use default
-MONGODB_URI = os.environ.get('MONGODB_URI', "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority")
-DB_NAME = "communisense"
-
-# Initialize collections
-users_collection = None
-activity_collection = None
-
+# Try to import MongoDB
 try:
-    # Connect to MongoDB
-    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10000)
+    from pymongo import MongoClient
+    from bson.objectid import ObjectId
+    MONGODB_AVAILABLE = True
+except ImportError:
+    MONGODB_AVAILABLE = False
+    print("⚠️ pymongo not installed")
+
+# Initialize storage
+users_collection = None
+USE_MONGODB = False
+
+if MONGODB_AVAILABLE:
+    try:
+        MONGODB_URI = os.environ.get('MONGODB_URI', "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority")
+        DB_NAME = "communisense"
+        
+        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        client.admin.command('ping')
+        
+        db = client[DB_NAME]
+        users_collection = db['users']
+        users_collection.create_index("username", unique=True)
+        users_collection.create_index("email", unique=True)
+        
+        USE_MONGODB = True
+        print("✅ MongoDB Connected Successfully!")
+        
+    except Exception as e:
+        print(f"❌ MongoDB connection failed: {e}")
+        print("⚠️ Using file-based storage instead")
+
+# Fallback: File-based storage (works everywhere)
+if not USE_MONGODB:
+    print("📁 Using file-based storage (users.json)")
+    USERS_FILE = "users.json"
     
-    # Test connection
-    client.admin.command('ping')
-    print("✅ MongoDB ping successful!")
+    def load_users():
+        if os.path.exists(USERS_FILE):
+            try:
+                with open(USERS_FILE, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
     
-    # Get database
-    db = client[DB_NAME]
-    users_collection = db['users']
-    activity_collection = db['activity_log']
+    def save_users(users):
+        with open(USERS_FILE, 'w') as f:
+            json.dump(users, f, indent=2)
     
-    # Create indexes for unique usernames and emails
-    users_collection.create_index("username", unique=True)
-    users_collection.create_index("email", unique=True)
+    # In-memory cache
+    _users_cache = load_users()
     
-    print(f"✅ MongoDB Connected Successfully!")
-    print(f"📁 Database: {DB_NAME}")
-    print(f"📁 Users collection: {users_collection.count_documents({})} users")
+    # Create a mock collection interface
+    class FileCollection:
+        def __init__(self):
+            self.data = _users_cache
+        
+        def find_one(self, query):
+            if 'username' in query:
+                username = query['username']
+                for uid, user in self.data.items():
+                    if user.get('username') == username:
+                        user['_id'] = uid
+                        return user
+            return None
+        
+        def insert_one(self, data):
+            import uuid
+            uid = str(uuid.uuid4())
+            data['_id'] = uid
+            self.data[uid] = data
+            save_users(self.data)
+            return type('obj', (object,), {'inserted_id': uid})()
+        
+        def update_one(self, filter, update):
+            pass
+        
+        def create_index(self, *args, **kwargs):
+            pass
+        
+        def count_documents(self, filter):
+            return len(self.data)
     
-except Exception as e:
-    print(f"❌ MongoDB Error: {e}")
-    print("⚠️ Please check:")
-    print("   1. IP whitelist in MongoDB Atlas (add 0.0.0.0/0)")
-    print("   2. Environment variable MONGODB_URI is set correctly")
+    users_collection = FileCollection()
 
 # ============================================
 # HELPER FUNCTIONS
@@ -62,19 +112,6 @@ def hash_password(password):
 
 def verify_password(password, hashed):
     return hash_password(password) == hashed
-
-def log_activity(user_id, activity_type, details):
-    """Log user activity to MongoDB"""
-    if activity_collection:
-        try:
-            activity_collection.insert_one({
-                'user_id': user_id,
-                'type': activity_type,
-                'details': details,
-                'timestamp': datetime.now()
-            })
-        except:
-            pass
 
 # ============================================
 # AUTH ROUTES
@@ -108,31 +145,23 @@ def api_signup():
         password = data.get("password", "")
         email = data.get("email", "").strip()
         
-        # Validation
         if not username or not password or not email:
             return jsonify({"success": False, "error": "All fields required"}), 400
         
         if len(password) < 6:
             return jsonify({"success": False, "error": "Password must be at least 6 characters"}), 400
         
-        # Check if MongoDB is connected
-        if users_collection is None:
-            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
-        
         # Check if user exists
-        existing_user = users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
-        if existing_user:
-            if existing_user['username'] == username:
-                return jsonify({"success": False, "error": "Username already taken"}), 409
-            else:
-                return jsonify({"success": False, "error": "Email already registered"}), 409
+        existing = users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
+        if existing:
+            return jsonify({"success": False, "error": "Username or email already taken"}), 409
         
         # Create new user
         user = {
             'username': username,
             'password': hash_password(password),
             'email': email,
-            'created_at': datetime.now(),
+            'created_at': datetime.now().isoformat(),
             'last_login': None,
             'stats': {
                 'total_detections': 0,
@@ -142,9 +171,6 @@ def api_signup():
         }
         
         result = users_collection.insert_one(user)
-        
-        # Log activity
-        log_activity(str(result.inserted_id), 'signup', f'User {username} signed up')
         
         # Create session
         session['user_id'] = str(result.inserted_id)
@@ -163,28 +189,14 @@ def api_login():
         username = data.get("username", "").strip()
         password = data.get("password", "")
         
-        # Check if MongoDB is connected
-        if users_collection is None:
-            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
-        
         # Find user
         user = users_collection.find_one({"username": username})
         
         if not user:
             return jsonify({"success": False, "error": "Invalid credentials"}), 401
         
-        # Verify password
         if not verify_password(password, user['password']):
             return jsonify({"success": False, "error": "Invalid credentials"}), 401
-        
-        # Update last login
-        users_collection.update_one(
-            {"_id": user['_id']},
-            {"$set": {"last_login": datetime.now()}}
-        )
-        
-        # Log activity
-        log_activity(str(user['_id']), 'login', f'User {username} logged in')
         
         # Create session
         session['user_id'] = str(user['_id'])
@@ -198,8 +210,6 @@ def api_login():
 
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
-    if 'user_id' in session:
-        log_activity(session['user_id'], 'logout', f'User {session["username"]} logged out')
     session.clear()
     return jsonify({"success": True})
 
@@ -211,23 +221,6 @@ def api_current_user():
             "user_id": session['user_id']
         })
     return jsonify({"username": None}), 401
-
-@app.route("/api/user/stats", methods=["GET"])
-def api_user_stats():
-    if 'user_id' not in session:
-        return jsonify({"error": "Not logged in"}), 401
-    
-    try:
-        user = users_collection.find_one({"_id": ObjectId(session['user_id'])})
-        if user:
-            return jsonify({
-                "stats": user.get('stats', {}),
-                "joined": user.get('created_at', datetime.now()).strftime("%Y-%m-%d"),
-                "last_login": user.get('last_login', datetime.now()).strftime("%Y-%m-%d %H:%M") if user.get('last_login') else "Never"
-            })
-        return jsonify({"error": "User not found"}), 404
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # ============================================
 # FEATURE PAGE ROUTES
@@ -286,7 +279,7 @@ def lip_sync_redirect():
     return redirect(url_for("communication_cards_page"))
 
 # ============================================
-# API ENDPOINTS (TTS, STT, etc.)
+# API ENDPOINTS
 # ============================================
 
 @app.route("/api/tts", methods=["POST"])
@@ -363,6 +356,23 @@ def api_translate():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/test_db", methods=["GET"])
+def test_db():
+    """Test if storage is working"""
+    try:
+        if users_collection is None:
+            return jsonify({"connected": False, "error": "No storage"})
+        
+        count = users_collection.count_documents({})
+        return jsonify({
+            "connected": True,
+            "users_count": count,
+            "storage_type": "MongoDB" if USE_MONGODB else "File-based",
+            "message": "Storage is working!"
+        })
+    except Exception as e:
+        return jsonify({"connected": False, "error": str(e)})
+
 # ============================================
 # RUN
 # ============================================
@@ -372,7 +382,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("🚀 CommuniSense Backend Starting...")
     print("=" * 50)
-    print("📁 Database: MongoDB - communisense")
+    print(f"📁 Storage: {'MongoDB' if USE_MONGODB else 'File-based (users.json)'}")
     print("🌐 Visit: http://localhost:5000")
     print("=" * 50)
     app.run(debug=True, port=5000)
