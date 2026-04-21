@@ -1,13 +1,12 @@
 """
-CommuniSense - Real-Time Multimodal Communication for Hearing & Speech Impaired
-Flask Backend - All Features Integrated
+CommuniSense - Real-Time Multimodal Communication Platform
+With MongoDB Data Storage
 """
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
 from flask_cors import CORS
 import os, json, base64, tempfile, time, uuid, hashlib, re
 from datetime import datetime
 from io import BytesIO
-from functools import wraps
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
@@ -16,47 +15,43 @@ app.secret_key = "communisense_secret_2024"
 CORS(app)
 
 # ============================================
-# MONGODB ATLAS CONNECTION - COMMUNISENSE DATABASE
+# MONGODB CONNECTION
 # ============================================
 
-# Initialize collections as None (will be set if connection succeeds)
-users_collection = None
-activity_collection = None
-mood_collection = None
-
-# Your connection string
-MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
+# Get connection string from environment variable (Render) or use default
+MONGODB_URI = os.environ.get('MONGODB_URI', "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority")
 DB_NAME = "communisense"
 
+# Initialize collections
+users_collection = None
+activity_collection = None
+
 try:
-    # Connect to MongoDB Atlas
-    client = MongoClient(MONGODB_URI)
-    
-    # Use communisense database
-    db = client[DB_NAME]
+    # Connect to MongoDB
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=10000)
     
     # Test connection
     client.admin.command('ping')
+    print("✅ MongoDB ping successful!")
     
-    # Collections
+    # Get database
+    db = client[DB_NAME]
     users_collection = db['users']
     activity_collection = db['activity_log']
-    mood_collection = db['mood_entries']
     
-    # Create indexes for faster queries
+    # Create indexes for unique usernames and emails
     users_collection.create_index("username", unique=True)
     users_collection.create_index("email", unique=True)
-    activity_collection.create_index("user_id")
-    activity_collection.create_index("timestamp")
     
-    print("=" * 50)
-    print("✅ MongoDB Atlas Connected Successfully!")
+    print(f"✅ MongoDB Connected Successfully!")
     print(f"📁 Database: {DB_NAME}")
-    print("=" * 50)
+    print(f"📁 Users collection: {users_collection.count_documents({})} users")
     
 except Exception as e:
-    print(f"❌ MongoDB Connection Error: {e}")
-    print("⚠️ Running without database - login/signup will not work")
+    print(f"❌ MongoDB Error: {e}")
+    print("⚠️ Please check:")
+    print("   1. IP whitelist in MongoDB Atlas (add 0.0.0.0/0)")
+    print("   2. Environment variable MONGODB_URI is set correctly")
 
 # ============================================
 # HELPER FUNCTIONS
@@ -67,6 +62,19 @@ def hash_password(password):
 
 def verify_password(password, hashed):
     return hash_password(password) == hashed
+
+def log_activity(user_id, activity_type, details):
+    """Log user activity to MongoDB"""
+    if activity_collection:
+        try:
+            activity_collection.insert_one({
+                'user_id': user_id,
+                'type': activity_type,
+                'details': details,
+                'timestamp': datetime.now()
+            })
+        except:
+            pass
 
 # ============================================
 # AUTH ROUTES
@@ -92,59 +100,6 @@ def dashboard():
         return redirect(url_for("login_page"))
     return send_file("templates/dashboard.html")
 
-@app.route("/number_recognition")
-def number_recognition():
-    return send_file("templates/number_recognition.html")
-
-@app.route("/api/login", methods=["POST"])
-def api_login():
-    try:
-        data = request.json
-        username = data.get("username", "").strip()
-        password = data.get("password", "")
-        
-        # Check if database is connected
-        if users_collection is None:
-            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
-        
-        # Find user in MongoDB
-        user = users_collection.find_one({"username": username})
-        
-        if user and verify_password(password, user['password']):
-            session["user_id"] = str(user['_id'])
-            session["username"] = username
-            return jsonify({"success": True, "username": username})
-        return jsonify({"success": False, "error": "Invalid credentials"}), 401
-    except Exception as e:
-        print(f"Login error: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
-@app.route("/api/test_db", methods=["GET"])
-def test_db():
-    """Test MongoDB connection - for debugging"""
-    try:
-        from pymongo import MongoClient
-        import os
-        
-        MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
-        
-        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        client.admin.command('ping')
-        
-        db = client['communisense']
-        users_count = db['users'].count_documents({})
-        
-        return jsonify({
-            "success": True,
-            "message": "MongoDB connected!",
-            "users_count": users_count,
-            "collections": db.list_collection_names()
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "message": "MongoDB connection failed"
-        }), 500
 @app.route("/api/signup", methods=["POST"])
 def api_signup():
     try:
@@ -153,50 +108,126 @@ def api_signup():
         password = data.get("password", "")
         email = data.get("email", "").strip()
         
-        # Check if database is connected
-        if users_collection is None:
-            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
-        
+        # Validation
         if not username or not password or not email:
             return jsonify({"success": False, "error": "All fields required"}), 400
         
         if len(password) < 6:
             return jsonify({"success": False, "error": "Password must be at least 6 characters"}), 400
         
+        # Check if MongoDB is connected
+        if users_collection is None:
+            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
+        
         # Check if user exists
-        existing = users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
-        if existing:
-            return jsonify({"success": False, "error": "Username or email already taken"}), 409
+        existing_user = users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
+        if existing_user:
+            if existing_user['username'] == username:
+                return jsonify({"success": False, "error": "Username already taken"}), 409
+            else:
+                return jsonify({"success": False, "error": "Email already registered"}), 409
         
         # Create new user
         user = {
-            "username": username,
-            "password": hash_password(password),
-            "email": email,
-            "created_at": datetime.now(),
-            "last_login": None,
-            "stats": {"detections": 0, "games": 0}
+            'username': username,
+            'password': hash_password(password),
+            'email': email,
+            'created_at': datetime.now(),
+            'last_login': None,
+            'stats': {
+                'total_detections': 0,
+                'games_played': 0,
+                'words_learned': 0
+            }
         }
         
         result = users_collection.insert_one(user)
-        session["user_id"] = str(result.inserted_id)
-        session["username"] = username
+        
+        # Log activity
+        log_activity(str(result.inserted_id), 'signup', f'User {username} signed up')
+        
+        # Create session
+        session['user_id'] = str(result.inserted_id)
+        session['username'] = username
         
         return jsonify({"success": True, "username": username})
+        
     except Exception as e:
         print(f"Signup error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    try:
+        data = request.json
+        username = data.get("username", "").strip()
+        password = data.get("password", "")
+        
+        # Check if MongoDB is connected
+        if users_collection is None:
+            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
+        
+        # Find user
+        user = users_collection.find_one({"username": username})
+        
+        if not user:
+            return jsonify({"success": False, "error": "Invalid credentials"}), 401
+        
+        # Verify password
+        if not verify_password(password, user['password']):
+            return jsonify({"success": False, "error": "Invalid credentials"}), 401
+        
+        # Update last login
+        users_collection.update_one(
+            {"_id": user['_id']},
+            {"$set": {"last_login": datetime.now()}}
+        )
+        
+        # Log activity
+        log_activity(str(user['_id']), 'login', f'User {username} logged in')
+        
+        # Create session
+        session['user_id'] = str(user['_id'])
+        session['username'] = username
+        
+        return jsonify({"success": True, "username": username})
+        
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
+    if 'user_id' in session:
+        log_activity(session['user_id'], 'logout', f'User {session["username"]} logged out')
     session.clear()
     return jsonify({"success": True})
 
 @app.route("/api/current_user", methods=["GET"])
 def api_current_user():
-    if "user_id" in session:
-        return jsonify({"username": session["username"], "user_id": session["user_id"]})
+    if 'user_id' in session:
+        return jsonify({
+            "username": session['username'],
+            "user_id": session['user_id']
+        })
     return jsonify({"username": None}), 401
+
+@app.route("/api/user/stats", methods=["GET"])
+def api_user_stats():
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+    
+    try:
+        user = users_collection.find_one({"_id": ObjectId(session['user_id'])})
+        if user:
+            return jsonify({
+                "stats": user.get('stats', {}),
+                "joined": user.get('created_at', datetime.now()).strftime("%Y-%m-%d"),
+                "last_login": user.get('last_login', datetime.now()).strftime("%Y-%m-%d %H:%M") if user.get('last_login') else "Never"
+            })
+        return jsonify({"error": "User not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ============================================
 # FEATURE PAGE ROUTES
@@ -250,16 +281,12 @@ def mood_journal_page():
 def communication_cards_page():
     return render_template("communication_cards.html")
 
-@app.route("/emergency_comm")
-def emergency_comm_page():
-    return render_template("communication_cards.html")
-
 @app.route("/lip_sync")
 def lip_sync_redirect():
     return redirect(url_for("communication_cards_page"))
 
 # ============================================
-# TEXT-TO-SPEECH API
+# API ENDPOINTS (TTS, STT, etc.)
 # ============================================
 
 @app.route("/api/tts", methods=["POST"])
@@ -274,8 +301,6 @@ def api_tts():
         if not text:
             return jsonify({"error": "No text provided", "success": False}), 400
         
-        print(f"🎤 Generating TTS for: {text[:50]}... in language: {lang}")
-        
         tts = gTTS(text=text, lang=lang, slow=False)
         mp3_fp = BytesIO()
         tts.write_to_fp(mp3_fp)
@@ -285,12 +310,7 @@ def api_tts():
         return jsonify({"audio": audio_b64, "success": True})
         
     except Exception as e:
-        print(f"❌ TTS Error: {e}")
         return jsonify({"error": str(e), "success": False}), 500
-
-# ============================================
-# SPEECH-TO-TEXT API
-# ============================================
 
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
@@ -311,68 +331,24 @@ def api_stt():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ============================================
-# IMAGE GENERATION API
-# ============================================
-
 @app.route("/api/image_gen", methods=["POST"])
 def api_image_gen():
     try:
         import requests as req
-        
         data = request.json
         prompt = data.get("prompt", "")
-        
         if not prompt:
-            return jsonify({"success": False, "error": "No prompt provided"}), 400
-        
+            return jsonify({"error": "No prompt"}), 400
         API_URL = "https://image.sarafathima3700.workers.dev"
         API_KEY = "12345678"
-        
-        headers = {
-            "Authorization": f"Bearer {API_KEY}", 
-            "Content-Type": "application/json"
-        }
-        
-        print(f"🎨 Generating image for prompt: {prompt[:50]}...")
-        
+        headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
         resp = req.post(API_URL, headers=headers, json={"prompt": prompt}, timeout=90)
-        
         if resp.status_code == 200:
-            content_type = resp.headers.get('content-type', '')
-            
-            if 'application/json' in content_type:
-                response_data = resp.json()
-                if 'image' in response_data:
-                    return jsonify({
-                        "success": True,
-                        "image": response_data['image'],
-                        "format": response_data.get('format', 'jpeg')
-                    })
-                elif 'data' in response_data:
-                    return jsonify({
-                        "success": True,
-                        "image": response_data['data'],
-                        "format": response_data.get('format', 'jpeg')
-                    })
-            
-            # Raw image data
-            img_b64 = base64.b64encode(resp.content).decode('utf-8')
-            return jsonify({
-                "success": True,
-                "image": img_b64,
-                "format": "jpeg"
-            })
-        else:
-            return jsonify({"success": False, "error": f"Worker error {resp.status_code}"}), 500
-            
+            img_b64 = base64.b64encode(resp.content).decode()
+            return jsonify({"image": img_b64, "format": "jpeg", "success": True})
+        return jsonify({"error": f"Worker error {resp.status_code}"}), 500
     except Exception as e:
-        print(f"❌ Image generation error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
-
-# ============================================
-# TRANSLATION API
-# ============================================
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/translate", methods=["POST"])
 def api_translate():
@@ -388,170 +364,6 @@ def api_translate():
         return jsonify({"error": str(e)}), 500
 
 # ============================================
-# EMOTION TRANSLATOR
-# ============================================
-
-EMOTION_MAP = {
-    "happy": {"emoji": "😊", "color": "#FFD700", "phrase": "I am feeling happy!", "sign": "☺️"},
-    "sad": {"emoji": "😢", "color": "#4169E1", "phrase": "I am feeling sad.", "sign": "😔"},
-    "angry": {"emoji": "😠", "color": "#FF4500", "phrase": "I am feeling angry!", "sign": "😤"},
-    "scared": {"emoji": "😨", "color": "#9B59B6", "phrase": "I am scared.", "sign": "😰"},
-    "excited": {"emoji": "🤩", "color": "#FF69B4", "phrase": "I am very excited!", "sign": "🎉"},
-    "confused": {"emoji": "😕", "color": "#FFA500", "phrase": "I am confused.", "sign": "🤔"},
-    "tired": {"emoji": "😴", "color": "#95A5A6", "phrase": "I am tired.", "sign": "💤"},
-    "loved": {"emoji": "🥰", "color": "#FF1493", "phrase": "I feel loved.", "sign": "❤️"},
-    "hungry": {"emoji": "🍔", "color": "#E67E22", "phrase": "I am hungry.", "sign": "🍽️"},
-    "pain": {"emoji": "🤕", "color": "#E74C3C", "phrase": "I am in pain.", "sign": "😣"},
-    "help": {"emoji": "🆘", "color": "#FF0000", "phrase": "I need help!", "sign": "🙋"},
-    "yes": {"emoji": "✅", "color": "#2ECC71", "phrase": "Yes!", "sign": "👍"},
-    "no": {"emoji": "❌", "color": "#E74C3C", "phrase": "No!", "sign": "👎"},
-    "thanks": {"emoji": "🙏", "color": "#27AE60", "phrase": "Thank you!", "sign": "🤝"},
-    "sorry": {"emoji": "😞", "color": "#7F8C8D", "phrase": "I am sorry.", "sign": "🙇"},
-}
-
-KEYWORD_EMOTION = {
-    "happy|joy|great|good|wonderful|amazing|love|excited|fantastic": "happy",
-    "sad|unhappy|depressed|crying|miss|lonely|heartbroken": "sad",
-    "angry|mad|furious|rage|hate|annoyed|frustrated": "angry",
-    "scared|afraid|fear|terrified|nervous|anxious|worried": "scared",
-    "excited|thrill|pumped|awesome|wow|incredible": "excited",
-    "confused|lost|unsure|dont understand|what|huh": "confused",
-    "tired|sleepy|exhausted|fatigue|rest": "tired",
-    "love|adore|care|sweet|darling": "loved",
-    "hungry|food|eat|starving|meal|dinner|lunch|breakfast": "hungry",
-    "pain|hurt|ache|ouch|injured|sick|ill": "pain",
-    "help|emergency|sos|assist|please help|need help": "help",
-    r"\byes\b|agree|correct|sure|okay|ok|yep": "yes",
-    r"\bno\b|nope|never|disagree|refuse": "no",
-    "thank|thanks|grateful|appreciate": "thanks",
-    "sorry|apologize|forgive|pardon|excuse": "sorry",
-}
-
-@app.route("/api/emotion_translate", methods=["POST"])
-def api_emotion_translate():
-    data = request.json
-    text = data.get("text", "").lower()
-    detected = None
-    for pattern, emotion in KEYWORD_EMOTION.items():
-        if re.search(pattern, text):
-            detected = emotion
-            break
-    if not detected:
-        detected = "confused"
-    info = EMOTION_MAP[detected]
-    try:
-        from gtts import gTTS
-        tts = gTTS(text=info["phrase"], lang="en")
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        tts.save(tmp.name)
-        with open(tmp.name, "rb") as f:
-            audio_b64 = base64.b64encode(f.read()).decode()
-        os.unlink(tmp.name)
-    except:
-        audio_b64 = None
-    return jsonify({"emotion": detected, "audio": audio_b64, **info})
-
-# ============================================
-# VISUAL ALERT SYSTEM
-# ============================================
-
-ALERT_TYPES = {
-    "doorbell": {"icon": "🔔", "color": "#F1C40F", "message": "Someone is at the door!", "priority": "medium"},
-    "alarm": {"icon": "🚨", "color": "#E74C3C", "message": "ALARM! Emergency!", "priority": "high"},
-    "baby": {"icon": "👶", "color": "#FF69B4", "message": "Baby is crying!", "priority": "high"},
-    "phone": {"icon": "📱", "color": "#3498DB", "message": "Phone is ringing!", "priority": "medium"},
-    "smoke": {"icon": "🔥", "color": "#E74C3C", "message": "Smoke detected! Danger!", "priority": "critical"},
-    "dog": {"icon": "🐕", "color": "#E67E22", "message": "Dog is barking!", "priority": "low"},
-    "knock": {"icon": "🚪", "color": "#9B59B6", "message": "Someone is knocking!", "priority": "medium"},
-    "microwave": {"icon": "📟", "color": "#1ABC9C", "message": "Microwave is done!", "priority": "low"},
-}
-
-@app.route("/api/visual_alert", methods=["POST"])
-def api_visual_alert():
-    data = request.json
-    alert_key = data.get("alert", "doorbell")
-    alert = ALERT_TYPES.get(alert_key, ALERT_TYPES["doorbell"])
-    return jsonify({"alert_type": alert_key, **alert, "timestamp": datetime.now().strftime("%H:%M:%S")})
-
-@app.route("/api/visual_alert/types", methods=["GET"])
-def api_alert_types():
-    return jsonify({"alerts": ALERT_TYPES})
-
-# ============================================
-# SIGN LANGUAGE DICTIONARY
-# ============================================
-
-SIGN_DICT = {
-    "hello": {"gif_desc": "Wave hand side to side", "hand": "✋", "tip": "Open palm, wave gently"},
-    "thank you": {"gif_desc": "Flat hand from chin forward", "hand": "🤲", "tip": "Touch chin, move hand forward"},
-    "please": {"gif_desc": "Circular motion on chest", "hand": "🖐️", "tip": "Rub chest in circle"},
-    "sorry": {"gif_desc": "Fist circles on chest", "hand": "✊", "tip": "Make fist, rub in circles"},
-    "yes": {"gif_desc": "Fist nods up and down", "hand": "✊", "tip": "Nod your fist"},
-    "no": {"gif_desc": "Index + middle tap thumb", "hand": "🤏", "tip": "Snap index+middle on thumb"},
-    "love": {"gif_desc": "Cross arms over chest", "hand": "🤗", "tip": "Cross both arms on chest"},
-    "help": {"gif_desc": "Thumbs up lifted by other hand", "hand": "👍", "tip": "One fist with thumb up, lift with flat hand"},
-    "eat": {"gif_desc": "Fingers to mouth repeatedly", "hand": "🤌", "tip": "Pinched fingers tap mouth"},
-    "water": {"gif_desc": "W hand taps chin", "hand": "🖖", "tip": "W-shape, tap chin twice"},
-    "home": {"gif_desc": "Flat O to cheek then chin", "hand": "🏠", "tip": "Pinched fingers: cheek → chin"},
-    "friend": {"gif_desc": "Hook index fingers together", "hand": "🤝", "tip": "Link index fingers both ways"},
-    "mother": {"gif_desc": "5-hand taps chin", "hand": "🖐️", "tip": "Open hand, tap chin"},
-    "father": {"gif_desc": "5-hand taps forehead", "hand": "🖐️", "tip": "Open hand, tap forehead"},
-    "more": {"gif_desc": "Fingertips tap together", "hand": "🤌", "tip": "Both pinched hands tap together"},
-    "stop": {"gif_desc": "Edge of hand chops palm", "hand": "🤚", "tip": "Flat hand chops flat palm"},
-    "good": {"gif_desc": "Flat hand from chin moves forward", "hand": "🖐️", "tip": "Touch chin, bring hand forward"},
-    "bad": {"gif_desc": "Hand flips from chin downward", "hand": "🤚", "tip": "Touch chin, flip hand down"},
-    "beautiful": {"gif_desc": "5-hand circles face, closes", "hand": "✨", "tip": "Spread fingers around face, close to fist"},
-    "school": {"gif_desc": "Clap hands twice", "hand": "👏", "tip": "Clap flat hands twice"},
-}
-
-@app.route("/api/sign_dictionary", methods=["GET"])
-def api_sign_dictionary():
-    query = request.args.get("q", "").lower().strip()
-    if query:
-        results = {k: v for k, v in SIGN_DICT.items() if query in k}
-    else:
-        results = SIGN_DICT
-    return jsonify({"results": results, "total": len(results)})
-
-# ============================================
-# MOOD JOURNAL
-# ============================================
-
-MOOD_STORE = {}
-
-@app.route("/api/mood_journal", methods=["GET"])
-def get_mood_journal():
-    user = session.get("user", "guest")
-    entries = MOOD_STORE.get(user, [])
-    return jsonify({"entries": entries})
-
-@app.route("/api/mood_journal", methods=["POST"])
-def add_mood_entry():
-    user = session.get("user", "guest")
-    data = request.json
-    entry = {
-        "id": str(uuid.uuid4()),
-        "mood": data.get("mood", "neutral"),
-        "emoji": data.get("emoji", "😐"),
-        "note": data.get("note", ""),
-        "energy": data.get("energy", 5),
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "date": datetime.now().strftime("%Y-%m-%d"),
-    }
-    if user not in MOOD_STORE:
-        MOOD_STORE[user] = []
-    MOOD_STORE[user].insert(0, entry)
-    MOOD_STORE[user] = MOOD_STORE[user][:30]
-    return jsonify({"success": True, "entry": entry})
-
-@app.route("/api/mood_journal/<entry_id>", methods=["DELETE"])
-def delete_mood_entry(entry_id):
-    user = session.get("user", "guest")
-    if user in MOOD_STORE:
-        MOOD_STORE[user] = [e for e in MOOD_STORE[user] if e["id"] != entry_id]
-    return jsonify({"success": True})
-
-# ============================================
 # RUN
 # ============================================
 
@@ -560,22 +372,7 @@ if __name__ == "__main__":
     print("=" * 50)
     print("🚀 CommuniSense Backend Starting...")
     print("=" * 50)
-    print("📁 Available Routes:")
-    print("   - http://localhost:5000/")
-    print("   - http://localhost:5000/login")
-    print("   - http://localhost:5000/signup")
-    print("   - http://localhost:5000/dashboard")
-    print("   - http://localhost:5000/tts")
-    print("   - http://localhost:5000/stt")
-    print("   - http://localhost:5000/word_recog")
-    print("   - http://localhost:5000/letter_recog")
-    print("   - http://localhost:5000/number_recog")
-    print("   - http://localhost:5000/games")
-    print("   - http://localhost:5000/image_gen")
-    print("   - http://localhost:5000/emotion_translate")
-    print("   - http://localhost:5000/visual_alert")
-    print("   - http://localhost:5000/sign_dictionary")
-    print("   - http://localhost:5000/mood_journal")
-    print("   - http://localhost:5000/communication_cards")
+    print("📁 Database: MongoDB - communisense")
+    print("🌐 Visit: http://localhost:5000")
     print("=" * 50)
     app.run(debug=True, port=5000)
