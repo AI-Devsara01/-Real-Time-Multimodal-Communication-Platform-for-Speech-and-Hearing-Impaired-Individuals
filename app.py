@@ -7,23 +7,25 @@ from flask_cors import CORS
 import os, json, base64, tempfile, time, uuid, hashlib, re
 from datetime import datetime
 from io import BytesIO
-from pymongo import MongoClient
-app = Flask(__name__)
-# Add these imports at the top with your other imports
+from functools import wraps
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+
+app = Flask(__name__)
 app.secret_key = "communisense_secret_2024"
 CORS(app)
-from functools import wraps
-from bson.objectid import ObjectId
+
 # ============================================
 # MONGODB ATLAS CONNECTION - COMMUNISENSE DATABASE
 # ============================================
 
-# Your connection string with correct password
-MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
+# Initialize collections as None (will be set if connection succeeds)
+users_collection = None
+activity_collection = None
+mood_collection = None
 
-# Database name - COMMUNISENSE
+# Your connection string
+MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
 DB_NAME = "communisense"
 
 try:
@@ -54,20 +56,21 @@ try:
     
 except Exception as e:
     print(f"❌ MongoDB Connection Error: {e}")
-# ══════════════════════════════════════════════
-#  AUTH ROUTES
-# ══════════════════════════════════════════════
+    print("⚠️ Running without database - login/signup will not work")
 
-# ══════════════════════════════════════════════
-#  AUTH ROUTES (FIXED - Using MongoDB)
-# ══════════════════════════════════════════════
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
 
-# Helper functions for password hashing
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def verify_password(password, hashed):
     return hash_password(password) == hashed
+
+# ============================================
+# AUTH ROUTES
+# ============================================
 
 @app.route("/")
 def index():
@@ -100,6 +103,10 @@ def api_login():
         username = data.get("username", "").strip()
         password = data.get("password", "")
         
+        # Check if database is connected
+        if users_collection is None:
+            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
+        
         # Find user in MongoDB
         user = users_collection.find_one({"username": username})
         
@@ -119,6 +126,10 @@ def api_signup():
         username = data.get("username", "").strip()
         password = data.get("password", "")
         email = data.get("email", "").strip()
+        
+        # Check if database is connected
+        if users_collection is None:
+            return jsonify({"success": False, "error": "Database not connected. Please try again later."}), 500
         
         if not username or not password or not email:
             return jsonify({"success": False, "error": "All fields required"}), 400
@@ -160,9 +171,10 @@ def api_current_user():
     if "user_id" in session:
         return jsonify({"username": session["username"], "user_id": session["user_id"]})
     return jsonify({"username": None}), 401
-# ══════════════════════════════════════════════
-#  FEATURE PAGE ROUTES
-# ══════════════════════════════════════════════
+
+# ============================================
+# FEATURE PAGE ROUTES
+# ============================================
 
 @app.route("/tts")
 def tts_page():
@@ -208,24 +220,21 @@ def sign_dictionary_page():
 def mood_journal_page():
     return render_template("mood_journal.html")
 
-# Communication Cards (replaces lip_sync)
 @app.route("/communication_cards")
 def communication_cards_page():
     return render_template("communication_cards.html")
 
-# Also keep emergency_comm if you have it
 @app.route("/emergency_comm")
 def emergency_comm_page():
     return render_template("communication_cards.html")
 
-# Redirect from old lip_sync URL to new one
 @app.route("/lip_sync")
 def lip_sync_redirect():
     return redirect(url_for("communication_cards_page"))
 
-# ══════════════════════════════════════════════
-#  TEXT-TO-SPEECH API
-# ══════════════════════════════════════════════
+# ============================================
+# TEXT-TO-SPEECH API
+# ============================================
 
 @app.route("/api/tts", methods=["POST"])
 def api_tts():
@@ -253,9 +262,9 @@ def api_tts():
         print(f"❌ TTS Error: {e}")
         return jsonify({"error": str(e), "success": False}), 500
 
-# ══════════════════════════════════════════════
-#  SPEECH-TO-TEXT API
-# ══════════════════════════════════════════════
+# ============================================
+# SPEECH-TO-TEXT API
+# ============================================
 
 @app.route("/api/stt", methods=["POST"])
 def api_stt():
@@ -276,9 +285,9 @@ def api_stt():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ══════════════════════════════════════════════
-#  IMAGE GENERATION API (FIXED)
-# ══════════════════════════════════════════════
+# ============================================
+# IMAGE GENERATION API
+# ============================================
 
 @app.route("/api/image_gen", methods=["POST"])
 def api_image_gen():
@@ -301,82 +310,43 @@ def api_image_gen():
         
         print(f"🎨 Generating image for prompt: {prompt[:50]}...")
         
-        # Send request to worker with longer timeout
         resp = req.post(API_URL, headers=headers, json={"prompt": prompt}, timeout=90)
         
         if resp.status_code == 200:
-            # Check if response is JSON or binary
             content_type = resp.headers.get('content-type', '')
             
             if 'application/json' in content_type:
-                # Worker returned JSON with base64 image
                 response_data = resp.json()
                 if 'image' in response_data:
-                    print("✅ Image generated successfully (JSON response)")
                     return jsonify({
                         "success": True,
                         "image": response_data['image'],
                         "format": response_data.get('format', 'jpeg')
                     })
                 elif 'data' in response_data:
-                    # Some APIs return data field
-                    print("✅ Image generated successfully (data field)")
                     return jsonify({
                         "success": True,
                         "image": response_data['data'],
                         "format": response_data.get('format', 'jpeg')
                     })
-                else:
-                    print(f"❌ No image in JSON response: {response_data.keys()}")
-                    return jsonify({
-                        "success": False, 
-                        "error": "No image in response"
-                    }), 500
-            else:
-                # Worker returned raw image data
-                print("✅ Image generated successfully (raw binary)")
-                img_b64 = base64.b64encode(resp.content).decode('utf-8')
-                return jsonify({
-                    "success": True,
-                    "image": img_b64,
-                    "format": "jpeg"
-                })
-        else:
-            # Try to parse error from JSON response
-            try:
-                error_data = resp.json()
-                error_msg = error_data.get('error', f"Worker error {resp.status_code}")
-            except:
-                error_msg = f"Worker error {resp.status_code}: {resp.text[:100]}"
             
-            print(f"❌ Worker error: {error_msg}")
+            # Raw image data
+            img_b64 = base64.b64encode(resp.content).decode('utf-8')
             return jsonify({
-                "success": False, 
-                "error": error_msg
-            }), 500
+                "success": True,
+                "image": img_b64,
+                "format": "jpeg"
+            })
+        else:
+            return jsonify({"success": False, "error": f"Worker error {resp.status_code}"}), 500
             
-    except req.exceptions.Timeout:
-        print("❌ Request timeout")
-        return jsonify({
-            "success": False, 
-            "error": "Request timeout - generation taking too long. Please try again."
-        }), 504
-    except req.exceptions.ConnectionError:
-        print("❌ Connection error")
-        return jsonify({
-            "success": False, 
-            "error": "Connection error - unable to reach image service"
-        }), 503
     except Exception as e:
         print(f"❌ Image generation error: {str(e)}")
-        return jsonify({
-            "success": False, 
-            "error": f"Generation failed: {str(e)}"
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
-# ══════════════════════════════════════════════
-#  TRANSLATION API
-# ══════════════════════════════════════════════
+# ============================================
+# TRANSLATION API
+# ============================================
 
 @app.route("/api/translate", methods=["POST"])
 def api_translate():
@@ -391,9 +361,9 @@ def api_translate():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ══════════════════════════════════════════════
-#  EMOTION TRANSLATOR
-# ══════════════════════════════════════════════
+# ============================================
+# EMOTION TRANSLATOR
+# ============================================
 
 EMOTION_MAP = {
     "happy": {"emoji": "😊", "color": "#FFD700", "phrase": "I am feeling happy!", "sign": "☺️"},
@@ -455,9 +425,9 @@ def api_emotion_translate():
         audio_b64 = None
     return jsonify({"emotion": detected, "audio": audio_b64, **info})
 
-# ══════════════════════════════════════════════
-#  VISUAL ALERT SYSTEM
-# ══════════════════════════════════════════════
+# ============================================
+# VISUAL ALERT SYSTEM
+# ============================================
 
 ALERT_TYPES = {
     "doorbell": {"icon": "🔔", "color": "#F1C40F", "message": "Someone is at the door!", "priority": "medium"},
@@ -481,9 +451,9 @@ def api_visual_alert():
 def api_alert_types():
     return jsonify({"alerts": ALERT_TYPES})
 
-# ══════════════════════════════════════════════
-#  SIGN LANGUAGE DICTIONARY
-# ══════════════════════════════════════════════
+# ============================================
+# SIGN LANGUAGE DICTIONARY
+# ============================================
 
 SIGN_DICT = {
     "hello": {"gif_desc": "Wave hand side to side", "hand": "✋", "tip": "Open palm, wave gently"},
@@ -517,9 +487,9 @@ def api_sign_dictionary():
         results = SIGN_DICT
     return jsonify({"results": results, "total": len(results)})
 
-# ══════════════════════════════════════════════
-#  MOOD JOURNAL
-# ══════════════════════════════════════════════
+# ============================================
+# MOOD JOURNAL
+# ============================================
 
 MOOD_STORE = {}
 
@@ -555,9 +525,9 @@ def delete_mood_entry(entry_id):
         MOOD_STORE[user] = [e for e in MOOD_STORE[user] if e["id"] != entry_id]
     return jsonify({"success": True})
 
-# ══════════════════════════════════════════════
-#  RUN
-# ══════════════════════════════════════════════
+# ============================================
+# RUN
+# ============================================
 
 if __name__ == "__main__":
     os.makedirs("templates", exist_ok=True)
@@ -581,6 +551,5 @@ if __name__ == "__main__":
     print("   - http://localhost:5000/sign_dictionary")
     print("   - http://localhost:5000/mood_journal")
     print("   - http://localhost:5000/communication_cards")
-    print("   - http://localhost:5000/lip_sync (redirects to communication_cards)")
     print("=" * 50)
     app.run(debug=True, port=5000)
