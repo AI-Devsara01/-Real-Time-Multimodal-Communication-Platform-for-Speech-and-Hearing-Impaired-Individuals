@@ -9,6 +9,9 @@ from datetime import datetime
 from io import BytesIO
 from pymongo import MongoClient
 app = Flask(__name__)
+# Add these imports at the top with your other imports
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 app.secret_key = "communisense_secret_2024"
 CORS(app)
 from functools import wraps
