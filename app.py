@@ -1,111 +1,43 @@
 """
 CommuniSense - Real-Time Multimodal Communication Platform
-With MongoDB + Fallback Storage
 """
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file, send_from_directory
 from flask_cors import CORS
-import os, json, base64, tempfile, time, uuid, hashlib, re
+import os
+import json
+import base64
+import tempfile
+import time
+import uuid
+import hashlib
+import re
 from datetime import datetime
 from io import BytesIO
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = "communisense_secret_2024"
 CORS(app)
 
 # ============================================
-# STORAGE (MongoDB with Fallback)
+# SIMPLE FILE-BASED STORAGE
 # ============================================
 
-# Try to import MongoDB
-try:
-    from pymongo import MongoClient
-    from bson.objectid import ObjectId
-    MONGODB_AVAILABLE = True
-except ImportError:
-    MONGODB_AVAILABLE = False
-    print("⚠️ pymongo not installed")
+USERS_FILE = "users.json"
 
-# Initialize storage
-users_collection = None
-USE_MONGODB = False
+def load_users():
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
 
-if MONGODB_AVAILABLE:
-    try:
-        MONGODB_URI = os.environ.get('MONGODB_URI', "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority")
-        DB_NAME = "communisense"
-        
-        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        client.admin.command('ping')
-        
-        db = client[DB_NAME]
-        users_collection = db['users']
-        users_collection.create_index("username", unique=True)
-        users_collection.create_index("email", unique=True)
-        
-        USE_MONGODB = True
-        print("✅ MongoDB Connected Successfully!")
-        
-    except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
-        print("⚠️ Using file-based storage instead")
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2)
 
-# Fallback: File-based storage (works everywhere)
-if not USE_MONGODB:
-    print("📁 Using file-based storage (users.json)")
-    USERS_FILE = "users.json"
-    
-    def load_users():
-        if os.path.exists(USERS_FILE):
-            try:
-                with open(USERS_FILE, 'r') as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
-    
-    def save_users(users):
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f, indent=2)
-    
-    # In-memory cache
-    _users_cache = load_users()
-    
-    # Create a mock collection interface
-    class FileCollection:
-        def __init__(self):
-            self.data = _users_cache
-        
-        def find_one(self, query):
-            if 'username' in query:
-                username = query['username']
-                for uid, user in self.data.items():
-                    if user.get('username') == username:
-                        user['_id'] = uid
-                        return user
-            return None
-        
-        def insert_one(self, data):
-            import uuid
-            uid = str(uuid.uuid4())
-            data['_id'] = uid
-            self.data[uid] = data
-            save_users(self.data)
-            return type('obj', (object,), {'inserted_id': uid})()
-        
-        def update_one(self, filter, update):
-            pass
-        
-        def create_index(self, *args, **kwargs):
-            pass
-        
-        def count_documents(self, filter):
-            return len(self.data)
-    
-    users_collection = FileCollection()
-
-# ============================================
-# HELPER FUNCTIONS
-# ============================================
+USERS = load_users()
 
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -119,7 +51,7 @@ def verify_password(password, hashed):
 
 @app.route("/")
 def index():
-    if "user_id" in session:
+    if "username" in session:
         return redirect(url_for("dashboard"))
     return redirect(url_for("login_page"))
 
@@ -133,12 +65,13 @@ def signup_page():
 
 @app.route("/dashboard")
 def dashboard():
-    if "user_id" not in session:
+    if "username" not in session:
         return redirect(url_for("login_page"))
     return send_file("templates/dashboard.html")
 
 @app.route("/api/signup", methods=["POST"])
 def api_signup():
+    global USERS
     try:
         data = request.json
         username = data.get("username", "").strip()
@@ -151,30 +84,25 @@ def api_signup():
         if len(password) < 6:
             return jsonify({"success": False, "error": "Password must be at least 6 characters"}), 400
         
-        # Check if user exists
-        existing = users_collection.find_one({"$or": [{"username": username}, {"email": email}]})
-        if existing:
-            return jsonify({"success": False, "error": "Username or email already taken"}), 409
+        USERS = load_users()
         
-        # Create new user
-        user = {
-            'username': username,
-            'password': hash_password(password),
-            'email': email,
-            'created_at': datetime.now().isoformat(),
-            'last_login': None,
-            'stats': {
-                'total_detections': 0,
-                'games_played': 0,
-                'words_learned': 0
-            }
+        if username in USERS:
+            return jsonify({"success": False, "error": "Username already taken"}), 409
+        
+        for existing_user in USERS.values():
+            if existing_user.get('email') == email:
+                return jsonify({"success": False, "error": "Email already registered"}), 409
+        
+        USERS[username] = {
+            "password": hash_password(password),
+            "email": email,
+            "created_at": datetime.now().isoformat(),
+            "stats": {"detections": 0, "games": 0}
         }
         
-        result = users_collection.insert_one(user)
+        save_users(USERS)
         
-        # Create session
-        session['user_id'] = str(result.inserted_id)
-        session['username'] = username
+        session["username"] = username
         
         return jsonify({"success": True, "username": username})
         
@@ -189,18 +117,15 @@ def api_login():
         username = data.get("username", "").strip()
         password = data.get("password", "")
         
-        # Find user
-        user = users_collection.find_one({"username": username})
+        USERS = load_users()
         
-        if not user:
+        if username not in USERS:
             return jsonify({"success": False, "error": "Invalid credentials"}), 401
         
-        if not verify_password(password, user['password']):
+        if not verify_password(password, USERS[username]["password"]):
             return jsonify({"success": False, "error": "Invalid credentials"}), 401
         
-        # Create session
-        session['user_id'] = str(user['_id'])
-        session['username'] = username
+        session["username"] = username
         
         return jsonify({"success": True, "username": username})
         
@@ -215,11 +140,8 @@ def api_logout():
 
 @app.route("/api/current_user", methods=["GET"])
 def api_current_user():
-    if 'user_id' in session:
-        return jsonify({
-            "username": session['username'],
-            "user_id": session['user_id']
-        })
+    if "username" in session:
+        return jsonify({"username": session["username"]})
     return jsonify({"username": None}), 401
 
 # ============================================
@@ -228,55 +150,63 @@ def api_current_user():
 
 @app.route("/tts")
 def tts_page():
-    return render_template("tts.html")
+    return send_file("templates/tts.html")
 
 @app.route("/stt")
 def stt_page():
-    return render_template("stt.html")
+    return send_file("templates/stt.html")
 
 @app.route("/word_recog")
 def word_recog_page():
-    return render_template("word_recog.html")
+    return send_file("templates/word_recog.html")
 
 @app.route("/letter_recog")
 def letter_recog_page():
-    return render_template("letter_recog.html")
+    return send_file("templates/letter_recog.html")
 
 @app.route("/number_recog")
 def number_recog_page():
-    return render_template("number_recog.html")
+    return send_file("templates/number_recog.html")
 
 @app.route("/games")
 def games_page():
-    return render_template("games.html")
+    return send_file("templates/games.html")
 
 @app.route("/image_gen")
 def image_gen_page():
-    return render_template("image_gen.html")
+    return send_file("templates/image_gen.html")
 
 @app.route("/emotion_translate")
 def emotion_translate_page():
-    return render_template("emotion_translate.html")
+    return send_file("templates/emotion_translate.html")
 
 @app.route("/visual_alert")
 def visual_alert_page():
-    return render_template("visual_alert.html")
+    return send_file("templates/visual_alert.html")
 
 @app.route("/sign_dictionary")
 def sign_dictionary_page():
-    return render_template("sign_dictionary.html")
+    return send_file("templates/sign_dictionary.html")
 
 @app.route("/mood_journal")
 def mood_journal_page():
-    return render_template("mood_journal.html")
+    return send_file("templates/mood_journal.html")
 
 @app.route("/communication_cards")
 def communication_cards_page():
-    return render_template("communication_cards.html")
+    return send_file("templates/communication_cards.html")
 
 @app.route("/lip_sync")
 def lip_sync_redirect():
     return redirect(url_for("communication_cards_page"))
+
+# ============================================
+# STATIC FILES
+# ============================================
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    return send_from_directory('static', path)
 
 # ============================================
 # API ENDPOINTS
@@ -356,33 +286,18 @@ def api_translate():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/api/test_db", methods=["GET"])
-def test_db():
-    """Test if storage is working"""
-    try:
-        if users_collection is None:
-            return jsonify({"connected": False, "error": "No storage"})
-        
-        count = users_collection.count_documents({})
-        return jsonify({
-            "connected": True,
-            "users_count": count,
-            "storage_type": "MongoDB" if USE_MONGODB else "File-based",
-            "message": "Storage is working!"
-        })
-    except Exception as e:
-        return jsonify({"connected": False, "error": str(e)})
-
 # ============================================
 # RUN
 # ============================================
 
 if __name__ == "__main__":
     os.makedirs("templates", exist_ok=True)
+    os.makedirs("static", exist_ok=True)
     print("=" * 50)
     print("🚀 CommuniSense Backend Starting...")
     print("=" * 50)
-    print(f"📁 Storage: {'MongoDB' if USE_MONGODB else 'File-based (users.json)'}")
+    print("📁 Templates folder: templates/")
+    print("📁 Static folder: static/")
     print("🌐 Visit: http://localhost:5000")
     print("=" * 50)
     app.run(debug=True, port=5000)
