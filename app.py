@@ -118,7 +118,33 @@ def api_login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
+@app.route("/api/test_db", methods=["GET"])
+def test_db():
+    """Test MongoDB connection - for debugging"""
+    try:
+        from pymongo import MongoClient
+        import os
+        
+        MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
+        
+        client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+        client.admin.command('ping')
+        
+        db = client['communisense']
+        users_count = db['users'].count_documents({})
+        
+        return jsonify({
+            "success": True,
+            "message": "MongoDB connected!",
+            "users_count": users_count,
+            "collections": db.list_collection_names()
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "message": "MongoDB connection failed"
+        }), 500
 @app.route("/api/signup", methods=["POST"])
 def api_signup():
     try:
