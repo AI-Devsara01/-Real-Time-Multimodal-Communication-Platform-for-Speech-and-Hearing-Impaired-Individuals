@@ -1,7 +1,6 @@
 from pymongo import MongoClient
 
-MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?retryWrites=true&w=majority"
-
+MONGODB_URI = "mongodb+srv://sara_db_user:sara123@cluster0.hhaghbf.mongodb.net/?appName=Cluster0"
 client = MongoClient(MONGODB_URI)
 db = client['communisense']
 
